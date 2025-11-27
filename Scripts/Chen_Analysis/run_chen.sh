@@ -65,12 +65,28 @@ jupyter nbconvert --to notebook --execute \
     --output-dir "$(realpath "$nb_dir")" \
     --output "summary"
 
-jupyter nbconvert --to html \
-    "$scripts_dir/summary.ipynb" \
-    --output-dir "$(realpath "$nb_dir")" \
-    --output "summary"
-
 echo "REMOVING THE OUTLIERS"
 
 python3 "$scripts_dir/iqr_apply.py"
+
+echo "CHECKM2 QUALITY CONTROL ANALYSIS"
+
+if [ -d "$chen_data_dir/CheckM2" ]; then
+    echo "Directory '$chen_data_dir/CheckM2' already exists."
+    read -p "Overwrite? (y/N): " RESP
+
+    case $RESP in
+        [yY])
+            echo "Overwriting CheckM2 analysis..."
+            rm -rf "$chen_data_dir/CheckM2"
+            bash "$scripts_dir/checkm2_analysis.sh"
+            ;;
+        *)
+            echo "Skipping CheckM2 analysis."
+            ;;
+    esac
+else
+    echo "Running CheckM2 analysis..."
+    bash "$scripts_dir/checkm2_analysis.sh"
+fi
 
