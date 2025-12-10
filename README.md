@@ -10,46 +10,45 @@ All the data presented in MXD originated from data mining of previous marine met
 
 The scripts are all located in a Scripts folder, with daughter directories related to specific parts of the projects, each one of these parts are run by a sub main script, which are called by the general main script, the "run.sh". 
 
--MXD
-    -Scripts
-        -Subproject1
-            -script1
-            -script2
-            -script3
-            -runsub1.sh
-        -Subproject2
-            -script1
-            -script2
-            -script3
-            -runsub2.sh
-        ...
-        -Processing_Pipeline
-    -Data
-    -Layout
-    -run.sh
+-MXD/
+  ├── Scripts/
+  │   ├── Subproject1/
+  │   │   ├── script1
+  │   │   ├── script2
+  │   │   ├── script3
+  │   │   └── runsub1.sh
+  │   ├── Subproject2/
+  │   │   ├── script1
+  │   │   ├── script2
+  │   │   ├── script3
+  │   │   └── runsub2.sh
+  │   └── Processing_Pipeline/
+  ├── Data/
+  ├── Layout/
+  └── run.sh
 
 In this way it's easier to know what each script and functions are doing in the database scheme and to debug if needed. This code are designed to be run and generate all the data retrieved from the database in a machine or a cluster, for a range of usages.
 
 After padronization of the retrieved data, all will pass through the main pipeline of the project and the final results will be sent to de Data directory, which stores all the raw data and the processed ones, the database entities and other useful information.
 
--MXD
-    -Scripts
-    -Data
-        -Entities
-        -Raw
-        -Reports
-    -Layout
-    -run.sh
+-MXD/
+  ├── Scripts/
+  ├── Data/
+  │   ├── Entities/
+  │   ├── Raw/
+  │   └── Reports/
+  ├── Layout/
+  └── run.sh
 
 The Layout directory refers to the front and backend of the software, using the data stored in the Data folder to organize the data and the filters in a intuitive way for the user. One can just download the source code and run the database in the machine or run from a server.
 
--MXD
-    -Scripts
-    -Data
-    -Layout
-        -frontend
-        -backend
-    -run.sh
+-MXD/
+  ├── Scripts/
+  ├── Data/
+  ├── Layout/
+  │   ├── frontend/
+  │   └── backend/
+  └── run.sh
 
 ## Data processing
 
