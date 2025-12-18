@@ -1,0 +1,3 @@
+Fingindo que tem um script aqui para baixar e fazer os processamentos dos dados
+
+Nessa etapa os genomas montados são baixados e, a partir da sua notação, outros dados do banco de dados são isolados
