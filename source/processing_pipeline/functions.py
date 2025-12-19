@@ -31,7 +31,7 @@ def bakta_analysis(bin: str, db: str, output):
         str(db),
         "--output",
         str(output),
-        "--meta", "--threads", "4",
+        "--meta", "--threads", "12",
         "--force",
         str(bin)
     ])
