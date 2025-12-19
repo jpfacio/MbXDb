@@ -46,7 +46,7 @@ print("Starting protein annotation (Bakta)")
 for bin in data_dir.glob("*"):
     output = "Data/Raw/Processed"
     print(f"Annotating: {bin.name}")
-    f.bakta_analysis(str(bin), str("../db-light/"), str(output))
+    f.bakta_analysis(str(bin), str("/temporario2/15402906/LBUEL-H11-Exploration/db"), str(output))
 
 
    
