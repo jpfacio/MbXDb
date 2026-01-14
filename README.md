@@ -1,5 +1,7 @@
 # MbXDb – Metagenomic biorremediation Xenobiotics Database
 
+v0.0.1
+
 MbXDb is a modular bioinformatics pipeline designed to process metagenome-assembled genomes (MAGs/bins) through quality filtering, functional annotation, and downstream analysis. The pipeline integrates state-of-the-art tools to ensure high-quality, biologically meaningful results.
 
 > **Note**: This project is under active development. Taxonomic and xenobiotic analysis modules are upcoming.

@@ -54,7 +54,11 @@ echo "Starting"
 echo "Creating Data Directories"
 
 data_dir="Data"
-sub_data_dirs=("$data_dir/Entities" "$data_dir/Raw" "$data_dir/Raw/Bins" "$data_dir/Raw/Processed" "$data_dir/Reports")
+tmp_dir="tmp"
+
+[ -n "$tmp_dir"] && rm -rf "$tmp_dir" && mkdir "$tmp_dir"
+
+sub_data_dirs=("$data_dir/Entities" "$data_dir/Raw" "$data_dir/Raw/Bins" "$data_dir/Raw/Processed" "$data_dir/Reports") 
 
 if [ -d "$data_dir" ]; then
     echo "Directory '$data_dir' already exists."
