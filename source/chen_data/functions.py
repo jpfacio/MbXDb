@@ -15,7 +15,7 @@ def filtering(csv, datadir):
     df = df.drop(["sample_type", "environment", "host", "technology", "country", "city",
               "collected_date", "isolation_source", "platform", "altitude", "host_disease"], axis=1)
     df = df[df["latitude_and_longitude"] != "missing"]
-    filtered = df.sample(frac=0.05, random_state=5)
+    filtered = df.sample(frac=0.001, random_state=5)
     
     filtered.to_csv("tmp/chen_data_5.csv", index=False)
     
