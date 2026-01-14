@@ -22,8 +22,10 @@ f.filtering(csv_file, data_dir / "Bins")
 
 links_script = scripts_dir / "links.sh"
 
-subprocess.run([str(links_script)], check=True)
-links_script.unlink()
+try:
+    subprocess.run([str(links_script)], check=True)
+finally:
+    links_script.unlink()
 
 
 
