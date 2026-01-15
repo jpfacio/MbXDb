@@ -3,6 +3,9 @@ import subprocess
 import functions as f
 import pandas as pd
 
+bakta_key=False
+checkm_key=False
+
 data_dir=Path("Data/Raw/Bins")
 scripts_dir=Path("source/test")
 tmp=Path("tmp")
@@ -15,7 +18,6 @@ for bin in data_dir.glob("*"):
     f.seqkit_summary(str(bin), str(output))
 
 seqkit_tsv = next(tmp.glob("*.tsv"))
-
 seqkit_df = pd.read_csv(seqkit_tsv, sep="\t")
 seqkit_df = seqkit_df[seqkit_df["num_seqs"] > 1000]
 
@@ -30,23 +32,31 @@ for i in seqkit_df['file']:
         
 print(f"{remove_count} files removed")
 
-#print("Starting CheckM2 analysis")
+print("Starting CheckM2 analysis")
 
-
-#####RESOLVER DEPOIS#######
-
-
-#for bin in data_dir.glob("*"):
-    #output = tmp
-    #print(f"Processing {bin.name}")
-    #f.checkm2_analysis(str(bin), str(output))
+if checkm_key:
+    for bin in data_dir.glob("*"):
+        output = tmp
+        print(f"Processing {bin.name}")
+        f.checkm2_analysis(str(bin), str(output))
+else:
+    pass
     
 print("Starting protein annotation (Bakta)")
 
-for bin in data_dir.glob("*"):
-    output = "Data/Raw/Processed"
-    print(f"Annotating: {bin.name}")
-    f.bakta_analysis(str(bin), str("/temporario2/15402906/LBUEL-H11-Exploration/db"), str(output))
+if bakta_key:
+    for bin in data_dir.glob("*"):
+        output = "Data/Raw/Processed"
+        print(f"Annotating: {bin.name}")
+        f.bakta_analysis(str(bin), str("/temporario2/15402906/LBUEL-H11-Exploration/db"), str(output))
+else:
+    pass
+
+
+
+
+    
+
 
 
    

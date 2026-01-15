@@ -56,7 +56,7 @@ echo "Creating Data Directories"
 data_dir="Data"
 tmp_dir="tmp"
 
-[ -n "$tmp_dir"] && rm -rf "$tmp_dir" && mkdir "$tmp_dir"
+mkdir -p "$tmp_dir"
 
 sub_data_dirs=("$data_dir/Entities" "$data_dir/Raw" "$data_dir/Raw/Bins" "$data_dir/Raw/Processed" "$data_dir/Reports") 
 
