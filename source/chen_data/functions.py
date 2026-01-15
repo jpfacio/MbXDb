@@ -12,8 +12,6 @@ def convert_json_csv(json_file):
     
 def filtering(csv, datadir):
     df = pd.read_csv(csv)
-    df = df.drop(["sample_type", "environment", "host", "technology", "country", "city",
-              "collected_date", "isolation_source", "platform", "altitude", "host_disease"], axis=1)
     df = df[df["latitude_and_longitude"] != "missing"]
     filtered = df.sample(frac=0.001, random_state=5)
     

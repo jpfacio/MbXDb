@@ -21,10 +21,6 @@ while [[ $# -gt 0 ]]; do
             run_chen=true
             shift
             ;;
-        --t)
-            run_t=true
-            shift
-            ;;
         --all)
             run_all=true
             shift
@@ -37,7 +33,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if $run_all; then
-    if $run_chen || $run_t; then
+    if $run_chen; then
         echo "Error: Argument --all was used alongside to specific subprojects, this argument enables all."
         exit 1
     fi
@@ -45,7 +41,7 @@ if $run_all; then
     run_chen=true
 fi
 
-if ! $run_chen && ! $run_t; then
+if ! $run_chen; then
     echo "Error: The whole database or specific subprojects are needed to run MXD"
     exit 1
 fi
@@ -97,11 +93,6 @@ if $run_chen; then
     echo "Downloading and processing the Chen et al. (2022) database"
     python3 "source/chen_data/run_chen.py"
 fi
-
-if $run_t; then
-    echo "Processing the test subset"
-    echo "Fingindo que rodou a padronização"
-fi 
 
 echo "Running the processing pipeline"
 

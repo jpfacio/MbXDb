@@ -28,6 +28,8 @@ try:
     subprocess.run([str(links_script)], check=True)
 finally:
     links_script.unlink()
+    
+
 
 
 
