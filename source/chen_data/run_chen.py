@@ -3,7 +3,7 @@ import subprocess
 import functions as f
 
 scripts_dir = Path("source/chen_data")
-data_dir = Path("Data/Raw")
+data_dir = Path("Data/Raw/")
 tmp=Path("tmp")
 
 csv_file = tmp / "chen_data.csv"
@@ -21,6 +21,8 @@ f.convert_json_csv(json_file)
 f.filtering(csv_file, data_dir / "Bins")
 
 links_script = scripts_dir / "links.sh"
+
+links_script.chmod(0o755)
 
 try:
     subprocess.run([str(links_script)], check=True)
