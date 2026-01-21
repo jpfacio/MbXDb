@@ -8,7 +8,7 @@ dependencies:
   - pip
   - wget
   - curl
-  - bakta
+  - bakta=1.11.3
   - blast
   - diamond
   - hmmer
@@ -17,7 +17,6 @@ dependencies:
   - trnascan-se
   - aragorn
   - infernal
-  - ncbi-amrfinderplus
   - seqkit
   - pigz
   - pbzip2
