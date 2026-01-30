@@ -29,4 +29,12 @@ dependencies:
   - alive-progress
   - about-time
   - pyyaml
+  - geopy
+  - geopandas
+  - shapely
+  - pyproj
+  - fiona
+  - rtree
+  - pip:
+    - habanero
   

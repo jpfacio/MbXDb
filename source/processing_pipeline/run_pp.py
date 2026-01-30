@@ -1,38 +1,40 @@
 from pathlib import Path
-import subprocess
 import functions as f
 import pandas as pd
 
-bakta_key=True
+seqkit_key = False
+bakta_key=False
 checkm_key=False
 
 data_dir=Path("Data/Raw/Bins")
-scripts_dir=Path("source/test")
 tmp=Path("tmp")
 
 print("Generating summary statistics")
 
-for bin in data_dir.glob("*"):
-    output = tmp / f"{bin.stem}_stats.tsv"
-    print(f"Processing: {bin.name}")
-    f.seqkit_summary(str(bin), str(output))
+if seqkit_key: 
+    for bin in data_dir.glob("*"):
+        output = tmp / f"{bin.stem}_stats.tsv"
+        print(f"Processing: {bin.name}")
+        f.seqkit_summary(str(bin), str(output))
 
-seqkit_tsv = next(tmp.glob("*.tsv"))
-seqkit_df = pd.read_csv(seqkit_tsv, sep="\t")
-seqkit_df = seqkit_df[seqkit_df["num_seqs"] > 1000]
+    seqkit_tsv = next(tmp.glob("*.tsv"))
+    seqkit_df = pd.read_csv(seqkit_tsv, sep="\t")
+    seqkit_df = seqkit_df[seqkit_df["num_seqs"] > 1000]
 
-remove_count = 0
-for i in seqkit_df['file']:
-    file_path = data_dir / i 
-    if file_path.exists():
-        file_path.unlink()
-        remove_count += 1
-    else:
-        print(f"File not found: {file_path}")
+    remove_count = 0
+    for i in seqkit_df['file']:
+        file_path = data_dir / i 
+        if file_path.exists():
+            file_path.unlink()
+            remove_count += 1
+        else:
+            print(f"File not found: {file_path}")
         
-print(f"{remove_count} files removed")
+    print(f"{remove_count} files removed")
 
-print("Starting CheckM2 analysis")
+    print("Starting CheckM2 analysis")
+else:
+    pass
 
 if checkm_key:
     for bin in data_dir.glob("*"):
@@ -51,6 +53,50 @@ if bakta_key:
         f.bakta_analysis(str(bin), str("/temporario2/9789751/db-light"), str(output))
 else:
     pass
+
+data_annot = Path("Data/Raw/Processed")
+
+tsv_annot = []
+for i in data_annot.glob("*.tsv"):
+    name = i.name
+    if "hypotheticals" not in name and "inference" not in name:
+        tsv_annot.append(i)
+
+genes_bins = []
+for i in tsv_annot:
+    genes_temp = f.create_genes_ent(i)
+    if not genes_temp.empty:
+        genes_bins.append(genes_temp)
+        
+if genes_bins:
+    genes_ent = pd.concat(genes_bins, ignore_index=True)
+    genes_ent.to_csv("Data/Entities/genes.csv", index=False)
+    
+        
+metadata = "tmp/metadata.csv"
+
+f.create_bins_ent(metadata)
+
+bins = pd.read_csv("Data/Entities/bins.csv")
+
+doi_list = bins["Study_ID"].unique().tolist()
+
+doi_dfs = []
+for doi in doi_list:
+    df = f.create_studies_ent(doi)
+    doi_dfs.append(df)
+
+final_doi_df = pd.concat(doi_dfs, ignore_index=True)
+
+final_doi_df.to_csv("Data/Entities/studies.csv", index=False)
+
+metadata_df = pd.read_csv(metadata)
+coords = list(metadata_df['coord'])
+
+f.create_environment_ent(coords[0])
+
+    
+
 
 
 

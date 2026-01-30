@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 import functions as f
+import pandas as pd
 
 scripts_dir = Path("source/chen_data")
 data_dir = Path("Data/Raw/")
@@ -9,26 +10,46 @@ tmp=Path("tmp")
 csv_file = tmp / "chen_data.csv"
 json_file =  tmp / "chen_data.json"
 
-subprocess.run([
-    "wget", 
-    "https://db.cngb.org/maya/api/get_export_data?dataset_id=MDB0000002&table_name=sample",
-    "-O",
-    str(json_file)
-], check=True)
+wget = False
+
+if wget:
+    subprocess.run([
+        "wget", 
+        "https://db.cngb.org/maya/api/get_export_data?dataset_id=MDB0000002&table_name=sample",
+        "-O",
+        str(json_file)
+    ], check=True)
     
-f.convert_json_csv(json_file)
+    f.convert_json_csv(json_file)
 
-f.filtering(csv_file, data_dir / "Bins")
+    f.filtering(csv_file, data_dir / "Bins")
 
-links_script = scripts_dir / "links.sh"
+    links_script = scripts_dir / "links.sh"
 
-links_script.chmod(0o755)
+    links_script.chmod(0o755)
 
-try:
-    subprocess.run([str(links_script)], check=True)
-finally:
-    links_script.unlink()
+    try:
+        subprocess.run([str(links_script)], check=True)
+    finally:
+        links_script.unlink()
+else:
+    pass
     
+
+chen_data = pd.read_csv("tmp/chen_data_5.csv")
+metadata = pd.read_csv("tmp/metadata.csv")
+
+metadata['bin'] = chen_data['sample_name']
+metadata['sample'] = chen_data["assembly_id"]
+metadata['project'] = chen_data['project_id']
+metadata['id_study'] = "https://doi.org/10.1038/s41586-024-07891-2"
+metadata['coord'] = chen_data['latitude_and_longitude']
+metadata['date'] = chen_data['collected_date']
+
+metadata.to_csv("tmp/metadata.csv", index=False)
+
+
+
 
 
 

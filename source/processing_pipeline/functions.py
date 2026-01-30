@@ -1,6 +1,11 @@
 import subprocess
 from pathlib import Path
 import pandas as pd
+from Bio import SeqIO
+from habanero import cn
+import json
+import re
+from geopy.geocoders import Nominatim
 
 def seqkit_summary(bin: str, output):
     bin_path = Path(bin)
@@ -37,24 +42,149 @@ def bakta_analysis(bin: str, db: str, output):
         str(bin)
     ])
     
-def create_genes_ent():
-    df = pd.read_csv("Data/Raw/Processed/GCA_026645595.1_ASM2664559v1_genomic.tsv",
-            sep="\t")
+def create_genes_ent(tsv: str):
+    df = pd.read_csv(tsv, sep="\t", skiprows=5)
+    df.columns.values[0] = df.columns[0].lstrip("#")
+    
+    df_cds = df[df["Type"] == "cds"]
+    n_row = len(df_cds["Sequence Id"])
+    
+    tsv_base = str(tsv).removesuffix(".fa.tsv")
+    tsv_name = Path(tsv_base).name
+    
+    gene_tags = [f"{tsv_name}_{i:04d}" for i in range(1, n_row + 1)]
 
-    gene_list = []
-    n_row = len(df['SequenceId'])
-    str_base = "GCA_026645595.1"
-    tags = [f"{str_base}_{i:04d}" for i in range(1, n_row + 1)]
+    contig = list(df_cds["Sequence Id"])
+    start = list(df_cds["Start"])
+    stop = list(df_cds["Stop"])
+    function = list(df_cds["Product"])
+    databases = list(df_cds["DbXrefs"])
+    
+    tsv_path = Path(tsv)
+    gbff = tsv_path.with_suffix(".gbff")
+    
+    locus_tag = list(df_cds["Locus Tag"])
+    seq_dict = {}
 
-    genes["Gene_Tag"] = tags
-    genes["Contig"] = df["SequenceId"]
-    genes["Start"] = df["Start"]
-    genes["End"] = df["Stop"]
-    genes["Function"] = df["Product"]
-    genes["Bin"] = str_base
-    genes["Sample_ID"] = "SAMN31654591"
+    for record in SeqIO.parse(gbff, "genbank"):
+        for feature in record.features:
+            if feature.type == "CDS":
+                locus = feature.qualifiers.get("locus_tag", [None])[0]
+                if locus is not None and locus in locus_tag:
+                    seq = feature.qualifiers.get("translation", [""])[0]
+                    seq_dict[locus] = seq
 
-    genes.to_csv("Data/Entities/genes.csv")
+    sequences = [seq_dict.get(locus) for locus in locus_tag]
+    
+    
+    genes_ent = pd.DataFrame({"Gene_Tag": gene_tags,
+                               "Contig": contig,
+                               "Start": start,
+                               "Stop": stop,
+                               "Product": function,
+                               "Databases": databases,
+                               "Product_Sequence": sequences,
+                               "Bin": tsv_name})
+    
+    return genes_ent
+    
+def create_bins_ent(path: str):
+    metadata = pd.read_csv(path)
+    
+    bins = list(metadata["bin"])
+    sample = list(metadata['sample'])
+    project = list(metadata['project'])
+    date = list(metadata['date'])
+    study = list(metadata['id_study'])
+    
+    bins_ent = pd.DataFrame({"Bin": bins,
+                             "Sample": sample,
+                             "Project": project,
+                             "Date": date,
+                             "Study_ID": study})
+    
+    bins_ent.to_csv("Data/Entities/bins.csv", index=False)
+
+def create_studies_ent(doi: str):
+        raw_data = cn.content_negotiation(ids=doi, format="citeproc-json")
+        data = json.loads(raw_data)
+        
+        title = data.get("title", [""])[0] if isinstance(data.get("title"), list) else data.get("title", "")
+        
+        keywords = "; ".join(data.get("subject", [])) if data.get("subject") else ""
+        
+        authors_str = ""
+        authors = data.get("author", [])
+        for author in authors:
+            family = author.get("family", "")
+            given = author.get("given", "")
+            initial = given[0] if given else ""
+            authors_str += f"{family}, {initial}.; "
+        authors_str = authors_str[:-2] if authors_str.endswith("; ") else authors_str
+        
+        container = data.get("container-title", [""]) if data.get("container-title") else ""
+        
+        year = None
+        issued = data.get("issued") or data.get("published")
+        if issued and "date-parts" in issued and len(issued["date-parts"][0]) > 0:
+            year = issued["date-parts"][0][0]
+    
+        affil_list = []
+        for author in authors:
+            affil = author.get("affiliation", [])
+            if affil:
+                for a in affil:
+                    country = a.get("country", "") 
+                    if country and country not in affil_list:
+                        affil_list.append(country)
+        affil_str = "; ".join(affil_list)
+        
+        return pd.DataFrame([{
+            "Study_ID": doi,
+            "Title": title,
+            "Keywords": keywords,
+            "Authors": authors_str,
+            "Journal": container,
+            "Year": year,
+            "Affiliations": affil_str
+        }])
+        
+def create_environment_ent(coord: str):
+    coord = coord.strip()
+    
+    match = re.match(r"([\d.]+)\s*([NS])\s+([\d.]+)\s*([EW])", coord)
+    if not match:
+        raise ValueError(f"Formato de coordenada inválido: {coord}")
+    
+    lat_num = float(match.group(1))
+    lat_dir = match.group(2)
+    lon_num = float(match.group(3))
+    lon_dir = match.group(4)
+    
+    latitude = lat_num if lat_dir == "N" else -lat_num
+    
+    longitude = lon_num if lon_dir == "E" else -lon_num
+    
+    print(latitude, longitude)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+    
+    
+    
+    
+    
+    
+    
     
 
 

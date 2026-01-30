@@ -1,7 +1,6 @@
 #!/bin/bash
 run_layout=false
 run_chen=false
-run_t=false
 run_all=false
 
 if [[ "$#" -eq 1 && "$1" == "--help" ]]; then
@@ -37,7 +36,6 @@ if $run_all; then
         echo "Error: Argument --all was used alongside to specific subprojects, this argument enables all."
         exit 1
     fi
-    run_t=true
     run_chen=true
 fi
 
@@ -53,6 +51,10 @@ data_dir="Data"
 tmp_dir="tmp"
 
 mkdir -p "$tmp_dir"
+
+cat > "$tmp_dir"/metadata.csv <<EOF
+bin,sample,project,id_study,coord,date
+EOF
 
 sub_data_dirs=("$data_dir/Entities" "$data_dir/Raw" "$data_dir/Raw/Bins" "$data_dir/Raw/Processed" "$data_dir/Reports") 
 
