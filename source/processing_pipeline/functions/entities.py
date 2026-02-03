@@ -5,43 +5,7 @@ from Bio import SeqIO
 from habanero import cn
 import json
 import re
-from geopy.geocoders import Nominatim
 
-def seqkit_summary(bin: str, output):
-    bin_path = Path(bin)
-    
-    subprocess.run([
-        "seqkit", "stats",
-        "-a", "-T", "-o", str(output),
-        str(bin_path)
-    ], check=True)
-    
-def checkm2_analysis(bin: str, output):
-    bin_path = Path(bin)
-    
-    subprocess.run([
-        "checkm2", "predict", "--input",
-        str(bin_path),
-        "--output-directory",
-        str(output),
-        "--threads 4",
-        "-x fa",
-        "--force"        
-    ], check=True)
-    
-def bakta_analysis(bin: str, db: str, output):
-    bin_path = Path(bin)
-    
-    subprocess.run([
-        "bakta", "--db", 
-        str(db),
-        "--output",
-        str(output),
-        "--meta", "--threads", "12",
-        "--force",
-        str(bin)
-    ])
-    
 def create_genes_ent(tsv: str):
     df = pd.read_csv(tsv, sep="\t", skiprows=5)
     df.columns.values[0] = df.columns[0].lstrip("#")
@@ -148,47 +112,3 @@ def create_studies_ent(doi: str):
             "Year": year,
             "Affiliations": affil_str
         }])
-        
-def create_environment_ent(coord: str):
-    coord = coord.strip()
-    
-    match = re.match(r"([\d.]+)\s*([NS])\s+([\d.]+)\s*([EW])", coord)
-    if not match:
-        raise ValueError(f"Formato de coordenada inválido: {coord}")
-    
-    lat_num = float(match.group(1))
-    lat_dir = match.group(2)
-    lon_num = float(match.group(3))
-    lon_dir = match.group(4)
-    
-    latitude = lat_num if lat_dir == "N" else -lat_num
-    
-    longitude = lon_num if lon_dir == "E" else -lon_num
-    
-    print(latitude, longitude)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-        
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-
-    
-    
-    

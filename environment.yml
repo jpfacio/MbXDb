@@ -8,7 +8,7 @@ dependencies:
   - pip
   - wget
   - curl
-  - bakta=1.11.3
+  - bakta=
   - blast
   - diamond
   - hmmer
@@ -35,6 +35,7 @@ dependencies:
   - pyproj
   - fiona
   - rtree
+  - antismash=7.1.0
   - pip:
     - habanero
   

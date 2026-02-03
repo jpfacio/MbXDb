@@ -15,7 +15,7 @@ if seqkit_key:
     for bin in data_dir.glob("*"):
         output = tmp / f"{bin.stem}_stats.tsv"
         print(f"Processing: {bin.name}")
-        f.seqkit_summary(str(bin), str(output))
+        f.st.seqkit_summary(str(bin), str(output))
 
     seqkit_tsv = next(tmp.glob("*.tsv"))
     seqkit_df = pd.read_csv(seqkit_tsv, sep="\t")
@@ -40,7 +40,7 @@ if checkm_key:
     for bin in data_dir.glob("*"):
         output = tmp
         print(f"Processing {bin.name}")
-        f.checkm2_analysis(str(bin), str(output))
+        f.st.checkm2_analysis(str(bin), str(output))
 else:
     pass
     
@@ -50,7 +50,7 @@ if bakta_key:
     for bin in data_dir.glob("*"):
         output = "Data/Raw/Processed"
         print(f"Annotating: {bin.name}")
-        f.bakta_analysis(str(bin), str("/temporario2/9789751/db-light"), str(output))
+        f.annot.bakta_analysis(str(bin), str("/temporario2/9789751/db-light"), str(output))
 else:
     pass
 
@@ -64,7 +64,7 @@ for i in data_annot.glob("*.tsv"):
 
 genes_bins = []
 for i in tsv_annot:
-    genes_temp = f.create_genes_ent(i)
+    genes_temp = f.ent.create_genes_ent(i)
     if not genes_temp.empty:
         genes_bins.append(genes_temp)
         
@@ -75,7 +75,7 @@ if genes_bins:
         
 metadata = "tmp/metadata.csv"
 
-f.create_bins_ent(metadata)
+f.ent.create_bins_ent(metadata)
 
 bins = pd.read_csv("Data/Entities/bins.csv")
 
@@ -83,17 +83,12 @@ doi_list = bins["Study_ID"].unique().tolist()
 
 doi_dfs = []
 for doi in doi_list:
-    df = f.create_studies_ent(doi)
+    df = f.ent.create_studies_ent(doi)
     doi_dfs.append(df)
 
 final_doi_df = pd.concat(doi_dfs, ignore_index=True)
 
 final_doi_df.to_csv("Data/Entities/studies.csv", index=False)
-
-metadata_df = pd.read_csv(metadata)
-coords = list(metadata_df['coord'])
-
-f.create_environment_ent(coords[0])
 
     
 
