@@ -1,6 +1,8 @@
 from pathlib import Path
 import functions as f
 import pandas as pd
+import requests
+import time
 
 seqkit_key = False
 bakta_key=False
@@ -90,7 +92,9 @@ final_doi_df = pd.concat(doi_dfs, ignore_index=True)
 
 final_doi_df.to_csv("Data/Entities/studies.csv", index=False)
 
-    
+f.annot.create_domain_metadata("Data/Entities/genes.csv")
+
+
 
 
 

@@ -100,6 +100,10 @@ echo "Running the processing pipeline"
 
 python3 "source/processing_pipeline/run_pp.py"
 
+python3 "database/init_db.py"
+
+python3 load_data.py
+
 
 
 

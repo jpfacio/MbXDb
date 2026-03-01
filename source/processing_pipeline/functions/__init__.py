@@ -8,3 +8,5 @@ import re
 from . import entities as ent
 from . import annot
 from . import sum_stats as st
+from bioservices import UniProt
+from itertools import islice
