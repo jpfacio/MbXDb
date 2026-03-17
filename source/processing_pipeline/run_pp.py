@@ -52,7 +52,7 @@ if bakta_key:
     for bin in data_dir.glob("*"):
         output = "Data/Raw/Processed"
         print(f"Annotating: {bin.name}")
-        f.annot.bakta_analysis(str(bin), str("/temporario2/9789751/db-light"), str(output))
+        f.annot.bakta_analysis(str(bin), str("/home/joao_facio/joao_facio_nfs/db/db-light"), str(output))
 else:
     pass
 

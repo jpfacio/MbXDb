@@ -8,7 +8,7 @@ dependencies:
   - pip
   - wget
   - curl
-  - bakta=
+  - bakta=1.8.2
   - blast
   - diamond
   - hmmer
@@ -26,7 +26,7 @@ dependencies:
   - pandas
   - numpy
   - tqdm
-  - alive-progress
+  - alive-progress=3.0.1
   - about-time
   - pyyaml
   - geopy
@@ -36,6 +36,8 @@ dependencies:
   - fiona
   - rtree
   - antismash=7.1.0
+  - pyhmmer=0.10.0
+  - sqlalchemy
   - pip:
     - habanero
   

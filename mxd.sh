@@ -98,11 +98,10 @@ fi
 
 echo "Running the processing pipeline"
 
-python3 "source/processing_pipeline/run_pp.py"
+echo "Building the database"
 
-python3 "database/init_db.py"
+python3 "source/database/db.py"
 
-python3 load_data.py
 
 
 
