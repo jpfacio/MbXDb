@@ -3,10 +3,13 @@ import functions as f
 import pandas as pd
 import requests
 import time
+import json
 
 seqkit_key = False
 bakta_key=False
 checkm_key=False
+uniprotkb_key = False
+basic_info_key = False
 
 data_dir=Path("Data/Raw/Bins")
 tmp=Path("tmp")
@@ -56,6 +59,8 @@ if bakta_key:
 else:
     pass
 
+print("Processing protein annotation")
+
 data_annot = Path("Data/Raw/Processed")
 
 tsv_annot = []
@@ -94,13 +99,22 @@ final_doi_df.to_csv("Data/Entities/studies.csv", index=False)
 
 f.annot.create_domain_metadata("Data/Entities/genes.csv")
 
+if uniprotkb_key:
+    uniref_to_uniprotkb = f.annot.map_prot("tmp/domain_metadata.csv")
+    uniref_to_uniprotkb.to_csv("tmp/uniref_to_uniprotkb.csv")
+else:
+    pass
 
+if basic_info_key:
+    uniprotkb_info = f.annot.uniprot_info("tmp/uniref_to_uniprotkb.csv")
+    uniprotkb_info.to_csv("tmp/uniprotkb_info.csv")
+else:
+    pass
 
+go_terms_info = f.annot.get_go_terms("tmp/uniprotkb_info.csv")
 
+f.annot.uniparc_info("tmp/uniref_to_uniprotkb.csv")
 
-
-
-    
 
 
 

@@ -98,9 +98,15 @@ fi
 
 echo "Running the processing pipeline"
 
+python3 "source/processing_pipeline/run_pp.py"
+
 echo "Building the database"
 
-python3 "source/database/db.py"
+if [ ! -f "mxd.db" ]; then
+    python3 "source/database/db.py"
+fi
+
+echo "Database built succesfully!"
 
 
 
