@@ -1,3 +1,5 @@
 tmp/
 source/chen_data/__pycache__/
-source/processing_pipeline/__pycache__/
+source/processing_pipeline/functions/__pycache__/
+source/processing_pipeline/database/__pycache__/
+Data/

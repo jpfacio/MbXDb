@@ -3,6 +3,7 @@ run_layout=false
 run_chen=false
 run_all=false
 
+# Defining arguments
 if [[ "$#" -eq 1 && "$1" == "--help" ]]; then
     cat << 'EOF'
 In development
@@ -100,13 +101,15 @@ echo "Running the processing pipeline"
 
 python3 "source/processing_pipeline/run_pp.py"
 
-echo "Building the database"
+#echo "Building the database"
 
-if [ ! -f "mxd.db" ]; then
-    python3 "source/database/db.py"
-fi
+#if [ ! -f 'mxd.db' ]; then
+    #python3 "source/database/set.py"
+#fi
 
-echo "Database built succesfully!"
+#echo "Database built succesfully!"
+
+
 
 
 

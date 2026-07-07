@@ -18,6 +18,7 @@ dependencies:
   - aragorn
   - infernal
   - seqkit
+  - checkm-genome
   - pigz
   - pbzip2
   - sra-tools        
@@ -38,6 +39,9 @@ dependencies:
   - antismash=7.1.0
   - pyhmmer=0.10.0
   - sqlalchemy
+  - goatools
+  - fastapi
+  - uvicorn
   - pip:
     - habanero
-  
+    - plotly

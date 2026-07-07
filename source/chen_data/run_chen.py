@@ -3,13 +3,15 @@ import subprocess
 import functions as f
 import pandas as pd
 
+# Defining directories and files
+
 scripts_dir = Path("source/chen_data")
 data_dir = Path("Data/Raw/")
 tmp=Path("tmp")
-
 csv_file = tmp / "chen_data.csv"
 json_file =  tmp / "chen_data.json"
 
+# Download and organizing Data
 wget = False
 
 if wget:
@@ -22,21 +24,21 @@ if wget:
     
     f.convert_json_csv(json_file)
 
-    f.filtering(csv_file, data_dir / "Bins")
-
-    links_script = scripts_dir / "links.sh"
-
-    links_script.chmod(0o755)
+    links_script = f.filtering(csv_file, '../joao_facio_nfs')
+    
+    script_path = Path(links_script)
+    script_path.chmod(0o755)
 
     try:
-        subprocess.run([str(links_script)], check=True)
+        subprocess.run([str(script_path)], check=True)
     finally:
-        links_script.unlink()
+        script_path.unlink()
 else:
     pass
     
+# Organizing the metadata file
 
-chen_data = pd.read_csv("tmp/chen_data_5.csv")
+chen_data = pd.read_csv("tmp/chen_data.csv")
 metadata = pd.read_csv("tmp/metadata.csv")
 
 metadata['bin'] = chen_data['sample_name']
