@@ -1,4 +1,4 @@
-name: MXD-env
+name: MbXDb-env
 channels:
   - conda-forge
   - bioconda
