@@ -6,13 +6,13 @@ import pandas as pd
 # Defining directories and files
 
 scripts_dir = Path("source/chen_data")
-data_dir = Path("Data/Raw/")
+data_dir = Path("Data/Raw/Bins")
 tmp=Path("tmp")
 csv_file = tmp / "chen_data.csv"
 json_file =  tmp / "chen_data.json"
 
 # Download and organizing Data
-wget = False
+wget = True
 
 if wget:
     subprocess.run([
