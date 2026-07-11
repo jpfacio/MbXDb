@@ -24,7 +24,7 @@ if wget:
     
     f.convert_json_csv(json_file)
 
-    links_script = f.filtering(csv_file, '../joao_facio_nfs')
+    links_script = f.filtering(csv_file, data_dir)
     
     script_path = Path(links_script)
     script_path.chmod(0o755)

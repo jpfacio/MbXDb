@@ -6,7 +6,7 @@ import time
 import json
 import os
 
-seqkit_key = True
+seqkit_key = False
 bakta_key= False
 checkm_key= False
 uniprotkb_key = False
