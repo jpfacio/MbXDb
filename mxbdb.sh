@@ -97,9 +97,9 @@ if $run_chen; then
     python3 "source/chen_data/run_chen.py"
 fi
 
-echo "Running the processing pipeline"
+#echo "Running the processing pipeline"
 
-python3 "source/processing_pipeline/run_pp.py"
+#python3 "source/processing_pipeline/run_pp.py"
 
 #echo "Building the database"
 

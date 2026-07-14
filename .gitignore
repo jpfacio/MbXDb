@@ -5,3 +5,4 @@ source/processing_pipeline/database/__pycache__/
 Data/
 mbxdb.db
 mxd.db
+log
