@@ -6,3 +6,4 @@ Data/
 mbxdb.db
 mxd.db
 log
+source/database/__pycache__/
