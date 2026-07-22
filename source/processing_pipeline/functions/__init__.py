@@ -16,4 +16,6 @@ import time
 import ast
 import os
 from goatools.obo_parser import GODag
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 

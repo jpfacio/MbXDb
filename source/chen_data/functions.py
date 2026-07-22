@@ -50,7 +50,7 @@ def filtering(df: pd.DataFrame, out: Path) -> pd.DataFrame:
     
     print("Randomizing 20 MAGs from metadata")
     
-    df = df.sample(n=1000, random_state=42)
+    df = df.sample(n=20, random_state=42)
     
     df['download'] = df['download'].str.replace('https://', 'ftp://', regex=False)
     
@@ -98,6 +98,7 @@ def get_url(url: str, out: Path) -> None:
             ], check=True)
             
             break
+        
         except subprocess.CalledProcessError: 
             print(f"Error downloading {url}. Attempt {attempt}/{MAX_RETRIES}")
             

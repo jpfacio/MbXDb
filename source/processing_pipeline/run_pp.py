@@ -7,8 +7,8 @@ import json
 import os
 
 seqkit_key = False
-bakta_key= False
 checkm_key= False
+bakta_key= False
 uniprotkb_key = False
 basic_info_key = False
 go_key = False
@@ -32,22 +32,24 @@ if checkm_key:
         output = tmp
         print(f"Processing {bin.name}")
         f.st.checkm2_analysis(str(bin), str(output))
+        
+        f.st.seqkit_filter(tmp / "summary_stats.tsv")
 else:
     pass
-    
-print("Starting protein annotation (Bakta)")
 
 if bakta_key:
-    for bin in data_dir.glob("*"):
-        output = "Data/Raw/Processed"
-        print(f"Annotating: {bin.name}")
-        f.annot.bakta_analysis(str(bin), str("/home/joao_facio/joao_facio_nfs/db/db-light"), str(output))
+    
+    print("Starting protein annotation (Bakta)")
+    
+    bins_list = f.annot.path_to_list(data_dir)
+    f.annot.fetch_bakta(bins_list, Path('db-light'), Path('Data/Raw/Processed'))
 else:
     pass
 
-print("Processing protein annotation")
-
 if annot_key:
+    
+    print("Processing protein annotation")
+    
     data_annot = Path("Data/Raw/Processed")
 
     tsv_annot = []

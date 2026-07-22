@@ -50,12 +50,7 @@ echo "Creating Data Directories"
 
 data_dir="Data"
 tmp_dir="tmp"
-
-mkdir -p "$tmp_dir"
-
-cat > "$tmp_dir"/metadata.csv <<EOF
-bin,sample,project,id_study,coord,date
-EOF
+log_dir="log"
 
 sub_data_dirs=("$data_dir/Entities" "$data_dir/Raw" "$data_dir/Raw/Bins" "$data_dir/Raw/Processed" "$data_dir/Reports") 
 
@@ -67,9 +62,16 @@ if [ -d "$data_dir" ]; then
         [yY])
             echo "Removing existing directory..."
             if rm -rf "$data_dir"; then
-                echo "Directory removed successfully."
+                echo "Data directories removed successfully."
+            
+            elif rm -rf "$tmp_dir"; then
+                echo "Tmp directory removed sucessfully."
+
+            elif rm -rf "$log_dir"; then
+                echo "Log directory removed sucessfully."
+
             else
-                echo "Error removing the directory."
+                echo "Error removing the directories."
                 exit 1
             fi
             ;;
@@ -89,25 +91,41 @@ if [ -z "$skip_data" ]; then
             exit 1
         fi
     done
-    echo "Done!"
+
+    if mkdir -p "$tmp_dir"; then
+        echo "Tmp directory created"
+
+        cat > "$tmp_dir"/metadata.csv <<EOF
+        bin,sample,project,id_study,coord,date
+EOF
+    else
+        echo "Failed to create: $tmp_dir"
+    fi
+
+    if mkdir -p "$log_dir"; then
+        echo "Log directory created"
+
+        cat > "$log_dir"/run.log <<EOF
+        ##########     LOG FILE     ##########
+
+        This file records the duration of each checkpoint, memory and space usage, it is intended for developers,
+        feel free to delete it when the database is built on your machine.
+
+        Run: $(date)
+
+        Process: $0
+EOF
+
+    else
+        echo "Failed to create: $log_dir"
+    fi
+
 fi
 
 if $run_chen; then
-    echo "Downloading and processing the Chen et al. (2022) database"
     python3 "source/chen_data/run_chen.py"
 fi
 
-#echo "Running the processing pipeline"
-
-#python3 "source/processing_pipeline/run_pp.py"
-
-#echo "Building the database"
-
-#if [ ! -f 'mxd.db' ]; then
-    #python3 "source/database/set.py"
-#fi
-
-#echo "Database built succesfully!"
 
 
 
