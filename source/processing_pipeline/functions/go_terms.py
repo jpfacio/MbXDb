@@ -52,7 +52,30 @@ def create_database_metadata(genes: pd.DataFrame) -> pd.DataFrame:
     
     return databases
 
-def uniref2uniparc(uniref: str, session: requests.Session, retries: int = 3):
+def uniref2annotations(uniref: str, session: requests.Session, retries: int = 3):
+
+    """This function queries the UniParc search endpoint once per UniRef
+    representative accession and extracts both the UniParc IDs and the
+    integrated InterPro entries from the same response. Every search hit
+    carries its InterProScan matches in the sequenceFeatures field, where
+    each feature holds the integrated InterPro group (e.g. IPR000001) when
+    the member database signature has been integrated into an InterPro
+    entry. Unintegrated signatures are skipped and the InterPro IDs of all
+    hits are merged preserving first-seen order.
+
+    Args:
+        uniref (str): UniRef representative accession, e.g. A0A3M2J779
+        session (requests.Session): Session to reuse the connection pool
+        retries (int): Number of attempts before giving up
+
+    Returns:
+        tuple: (uniref, UniParc ID list or None, InterPro ID list or None)
+
+    Raises:
+        requests.exceptions.RequestException: after exhausting all retries,
+        so callers can tell a real failure apart from a legitimate None
+        ("no matches") and avoid caching failed lookups.
+    """
 
     url = f"https://rest.uniprot.org/uniparc/search?query={uniref}"
 
@@ -66,16 +89,21 @@ def uniref2uniparc(uniref: str, session: requests.Session, retries: int = 3):
 
             results = data.get("results", [])
 
-            if results:
+            uniparc = [
+                x["uniParcId"]
+                for x in results
+            ]
 
-                uniparc_ids = [
-                    x["uniParcId"]
-                    for x in results
-                ]
+            interpro = []
+            for result in results:
+                for feature in result.get("sequenceFeatures", []):
+                    group = feature.get("interproGroup") or {}
+                    if group.get("id"):
+                        interpro.append(group["id"])
 
-                return uniref, uniparc_ids
+            interpro = list(dict.fromkeys(interpro))
 
-            return uniref, None
+            return uniref, uniparc or None, interpro or None
 
         except requests.exceptions.RequestException as e:
 
@@ -83,51 +111,54 @@ def uniref2uniparc(uniref: str, session: requests.Session, retries: int = 3):
                 time.sleep(5)
             else:
                 print(f"[ERROR] {uniref}: {e}")
-                return uniref, None
+                raise
 
 
-def fetch_uniref2uniparc(data_meta: pd.DataFrame, max_workers: int = 5):
+def _load_uniref_cache(cache_dir) -> dict:
 
-    query = (
-        data_meta["UniRef"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
+    """Loads previously resolved UniRef records from the cache directory.
+    Each cache file is a JSON record {"uniref": ..., "uniparc": [...] or
+    null, "interpro": [...] or null}.
 
-    print(f"Processing {len(query)} unique UniRef IDs...\n")
+    Args:
+        cache_dir (str): Directory holding the per-ID result cache
 
-    session = requests.Session()
+    Returns:
+        dict: {accession: {"uniparc": list or None,
+                           "interpro": list or None}}
+    """
+    cache_dir = Path(cache_dir)
+    cached = {}
+    if cache_dir.is_dir():
+        for f in cache_dir.glob("*.json"):
+            with open(f) as fh:
+                rec = json.load(fh)
+            if "uniref" in rec:
+                cached[rec["uniref"]] = {
+                    "uniparc": rec.get("uniparc"),
+                    "interpro": rec.get("interpro")
+                }
+    return cached
 
-    def worker(uniref):
-        return uniref2uniparc(uniref, session)
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+def _save_uniref_cache(cache_dir, uniref, uniparc, interpro) -> None:
 
-        results = list(
-            tqdm(
-                executor.map(worker, query),
-                total=len(query),
-                desc="Mapping UniRef → UniParc",
-                unit="IDs"
-            )
+    """Persists a single UniRef lookup result as a JSON file in the cache
+    directory.
+
+    Args:
+        cache_dir (str): Directory holding the per-ID result cache
+        uniref (str): UniRef representative accession
+        uniparc (list): UniParc IDs found for the accession, or None
+        interpro (list): InterPro IDs found for the accession, or None
+    """
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    with open(cache_dir / f"{uniref}.json", "w") as fh:
+        json.dump(
+            {"uniref": uniref, "uniparc": uniparc, "interpro": interpro},
+            fh
         )
-
-    session.close()
-
-    mapping = dict(results)
-
-    data_meta["UniParc"] = (
-        data_meta["UniRef"]
-        .map(mapping)
-    )
-
-    mapped = data_meta["UniParc"].notna().sum()
-
-    print("\nFinished!")
-    print(f"Mapped {mapped:,} / {len(data_meta):,} rows.")
-
-    return data_meta
 
 def _parse_id_cell(ids) -> list:
 
@@ -158,178 +189,91 @@ def _parse_id_cell(ids) -> list:
         return [ids]
     return []
 
-def uniparc2interpro(uniparc: str, session: requests.Session, retries: int = 3):
+def fetch_uniref_annotations(data_meta: pd.DataFrame, max_workers: int = 20,
+                             cache_dir: str = "tmp/uniref2ip_cache"):
 
-    """This function queries the UniParc entry endpoint and extracts the
-    InterPro entries associated with the sequence. UniParc records carry the
-    precomputed InterProScan matches in the sequenceFeatures field, where each
-    feature holds the integrated InterPro group (e.g. IPR000001) when the
-    member database signature has been integrated into an InterPro entry.
-    Unintegrated signatures are skipped.
+    """This function maps every distinct UniRef representative accession in
+    the database metadata to its UniParc entries and integrated InterPro
+    entries, storing the results in new UniParc and InterPro columns. Both
+    come from a single HTTP call per accession: the UniParc search response
+    already carries the InterProScan matches of every hit, so no second
+    round of per-entry calls is needed. Only integrated InterPro entries
+    (IPR...) are kept, as a list of IDs per row.
 
-    Args:
-        uniparc (str): UniParc ID, e.g. UPI00003796B2
-        session (requests.Session): Session to reuse the connection pool
-        retries (int): Number of attempts before giving up
-
-    Returns:
-        tuple: (uniparc, list of InterPro IDs) or (uniparc, None) when the
-        entry has no integrated matches
-
-    Raises:
-        requests.exceptions.RequestException: after exhausting all retries,
-        so callers can tell a real failure apart from a legitimate None
-        ("no integrated matches") and avoid caching failed lookups.
-    """
-
-    url = f"https://rest.uniprot.org/uniparc/{uniparc}"
-
-    for attempt in range(retries):
-
-        try:
-            r = session.get(url, timeout=30)
-            r.raise_for_status()
-
-            data = r.json()
-
-            interpro = []
-            for feature in data.get("sequenceFeatures", []):
-                group = feature.get("interproGroup") or {}
-                if group.get("id"):
-                    interpro.append(group["id"])
-
-            interpro = list(dict.fromkeys(interpro))
-
-            return uniparc, interpro or None
-
-        except requests.exceptions.RequestException as e:
-
-            if attempt < retries - 1:
-                time.sleep(5)
-            else:
-                print(f"[ERROR] {uniparc}: {e}")
-                raise
-
-
-def _load_uniparc_cache(cache_dir) -> dict:
-
-    """Loads previously resolved UniParc results from the cache directory.
-    Each cache file is a JSON record {"uniparc": ..., "interpro": [...] or
-    null}.
-
-    Args:
-        cache_dir (str): Directory holding the per-ID result cache
-
-    Returns:
-        dict: {UniParc ID: InterPro list or None}
-    """
-    cache_dir = Path(cache_dir)
-    cached = {}
-    if cache_dir.is_dir():
-        for f in cache_dir.glob("*.json"):
-            with open(f) as fh:
-                rec = json.load(fh)
-            if "uniparc" in rec:
-                cached[rec["uniparc"]] = rec.get("interpro")
-    return cached
-
-
-def _save_uniparc_cache(cache_dir, uniparc, interpro) -> None:
-
-    """Persists a single UniParc lookup result as a JSON file in the cache
-    directory.
-
-    Args:
-        cache_dir (str): Directory holding the per-ID result cache
-        uniparc (str): UniParc ID
-        interpro (list): InterPro IDs found for the entry, or None
-    """
-    cache_dir = Path(cache_dir)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    with open(cache_dir / f"{uniparc}.json", "w") as fh:
-        json.dump({"uniparc": uniparc, "interpro": interpro}, fh)
-
-
-def fetch_uniparc2interpro(data_meta: pd.DataFrame, max_workers: int = 5,
-                           cache_dir: str = "tmp/uniparc2ip_cache"):
-
-    """This function maps every distinct UniParc ID in the database metadata to
-    its InterPro entries and stores the results in a new InterPro column. Only
-    the integrated InterPro entries (IPR...) are kept, as a list of IDs per
-    row.
-
-    Results are cached per UniParc ID in `cache_dir` (one JSON file per ID),
+    Results are cached per accession in `cache_dir` (one JSON file per ID),
     so an interrupted run can resume: already-resolved IDs are skipped and
     every completed lookup is written to disk as it finishes. Failed lookups
     are NOT cached, so they are retried on the next run.
 
     Args:
-        data_meta (pd.DataFrame): Database metadata with a UniParc column
+        data_meta (pd.DataFrame): Database metadata with a UniRef column
         max_workers (int): Number of parallel workers
         cache_dir (str): Directory holding the per-ID result cache
 
     Returns:
-        pd.DataFrame: Database metadata with the added InterPro column
+        pd.DataFrame: Database metadata with added UniParc/InterPro columns
     """
 
     query = sorted(
-        {
-            upi
-            for ids in data_meta["UniParc"].dropna()
-            for upi in _parse_id_cell(ids)
-        }
+        data_meta["UniRef"]
+        .dropna()
+        .unique()
+        .tolist()
     )
 
-    cached = _load_uniparc_cache(cache_dir)
-    to_do = [upi for upi in query if upi not in cached]
+    cached = _load_uniref_cache(cache_dir)
+    to_do = [acc for acc in query if acc not in cached]
 
-    print(f"Processing {len(to_do):,} unique UniParc IDs "
+    print(f"Processing {len(to_do):,} unique UniRef IDs "
           f"({len(cached):,} already cached)...\n")
 
     session = requests.Session()
 
     mapping = dict(cached)
 
-    def worker(uniparc):
-        return uniparc2interpro(uniparc, session)
+    def worker(uniref):
+        return uniref2annotations(uniref, session)
 
     if to_do:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
 
             futures = {
-                executor.submit(worker, upi): upi
-                for upi in to_do
+                executor.submit(worker, acc): acc
+                for acc in to_do
             }
 
             for future in tqdm(
                     as_completed(futures),
                     total=len(to_do),
-                    desc="Mapping UniParc → InterPro",
+                    desc="Mapping UniRef → UniParc/InterPro",
                     unit="IDs"
             ):
                 try:
-                    uniparc, interpro = future.result()
+                    uniref, uniparc, interpro = future.result()
                 except Exception as e:
                     print(f"[ERROR] {futures[future]}: {e}")
                     continue
-                mapping[uniparc] = interpro
-                _save_uniparc_cache(cache_dir, uniparc, interpro)
+                mapping[uniref] = {"uniparc": uniparc, "interpro": interpro}
+                _save_uniref_cache(cache_dir, uniref, uniparc, interpro)
 
     session.close()
 
-    def interpro_for(ids):
-        interpro = []
-        for upi in _parse_id_cell(ids):
-            interpro.extend(mapping.get(upi) or [])
-        interpro = list(dict.fromkeys(interpro))
-        return interpro or None
+    uniparc_map = {
+        acc: rec["uniparc"] for acc, rec in mapping.items()
+    }
+    interpro_map = {
+        acc: rec["interpro"] for acc, rec in mapping.items()
+    }
 
-    data_meta["InterPro"] = data_meta["UniParc"].apply(interpro_for)
+    data_meta["UniParc"] = data_meta["UniRef"].map(uniparc_map)
+    data_meta["InterPro"] = data_meta["UniRef"].map(interpro_map)
 
-    mapped = data_meta["InterPro"].notna().sum()
+    mapped_upi = data_meta["UniParc"].notna().sum()
+    mapped_ipr = data_meta["InterPro"].notna().sum()
 
     print("\nFinished!")
-    print(f"Mapped {mapped:,} / {len(data_meta):,} rows.")
+    print(f"Mapped UniParc {mapped_upi:,} / {len(data_meta):,} rows.")
+    print(f"Mapped InterPro {mapped_ipr:,} / {len(data_meta):,} rows.")
 
     return data_meta
 
@@ -361,6 +305,7 @@ def parse_interpro2go(path: str) -> dict:
             ipr = left.split(":", 1)[1].split(" ", 1)[0]
             go_ids = set(re.findall(r"GO:\d+", right))
             ipr2go.setdefault(ipr, set()).update(go_ids)
+            
     return ipr2go
 
 

@@ -12,10 +12,11 @@ import os
 
 # Control Keys
 
-qc = False
-bakta_key= False
-ent_key = False
-go = False
+qc = True
+seqkit = True
+bakta_key= True
+ent_key = True
+go = True
 pah_key = True
 
 # Path definitions
@@ -37,11 +38,17 @@ if qc:
     
     st_start = perf_counter()
     
-    st_summary = f.st.seqkit_summary(data_dir, tmp)
+    if seqkit:
+        st_summary = f.st.seqkit_summary(data_dir, tmp)
+        
+        f.st.seq_filter(st_summary)
+        
+        f.st.seq_remove_500(data_dir)
     
-    f.st.seq_filter(st_summary)
-    
-    f.st.seq_remove_500(data_dir)
+    else:
+        print("Skipping seqkit QC steps, loading existing summary")
+        
+        st_summary = pd.read_csv(tmp / "summary_stats.tsv", sep="\t")
     
     checkm_data = f.st.run_checkm(data_dir, tmp, log)
     
@@ -49,6 +56,7 @@ if qc:
     
     st_elapsed = perf_counter() - st_start
     st_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    st_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     
     st_space = subprocess.run(
         ["du", "-sh", '.'],
@@ -64,6 +72,7 @@ if qc:
                 "#####   QC CHECKPOINT  #####\n\n"
                 f"Execution time: {timedelta(seconds=round(st_elapsed))}\n"
                 f"Peak memory: {st_mem / 1024:.2f} MB\n"
+                f"Peak memory (children): {st_child_mem / 1024:.2f} MB\n"
                 f"Project size: {st_size}\n\n"
             )
             
@@ -85,6 +94,7 @@ if bakta_key:
     
     bakta_elapsed = perf_counter() - bakta_start
     bakta_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    bakta_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     
     bakta_space = subprocess.run(
         ["du", "-sh", '.'],
@@ -100,6 +110,7 @@ if bakta_key:
                 "#####   BAKTA CHECKPOINT  #####\n\n"
                 f"Execution time: {timedelta(seconds=round(bakta_elapsed))}\n"
                 f"Peak memory: {bakta_mem / 1024:.2f} MB\n"
+                f"Peak memory (children): {bakta_child_mem / 1024:.2f} MB\n"
                 f"Project size: {bakta_size}\n\n"
             )
 else:
@@ -149,6 +160,7 @@ if ent_key:
     
     ent_elapsed = perf_counter() - ent_start
     ent_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    ent_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     
     ent_space = subprocess.run(
             ["du", "-sh", '.'],
@@ -160,12 +172,13 @@ if ent_key:
     ent_size = ent_space.stdout.split()[0]
     
     with open(log_run, 'a') as run:
-                run.write(
-                    "#####   ENTITIES CHECKPOINT  #####\n\n"
-                    f"Execution time: {timedelta(seconds=round(ent_elapsed))}\n"
-                    f"Peak memory: {ent_mem / 1024:.2f} MB\n"
-                    f"Project size: {ent_size}\n\n"
-                )
+            run.write(
+                "#####   ENTITIES CHECKPOINT  #####\n\n"
+                f"Execution time: {timedelta(seconds=round(ent_elapsed))}\n"
+                f"Peak memory: {ent_mem / 1024:.2f} MB\n"
+                f"Peak memory (children): {ent_child_mem / 1024:.2f} MB\n"
+                f"Project size: {ent_size}\n\n"
+            )
 else: 
     pass
 
@@ -183,9 +196,7 @@ if go:
     
     annotations = f.go.create_database_metadata(genes_ent)
     
-    annotations = f.go.fetch_uniref2uniparc(annotations)
-    
-    annotations = f.go.fetch_uniparc2interpro(annotations)
+    annotations = f.go.fetch_uniref_annotations(annotations)
     
     ipr2go = f.go.parse_interpro2go("support_files/interpro2go.txt")
     annotations = f.go.fetch_go_terms(annotations, ipr2go)
@@ -196,6 +207,7 @@ if go:
     
     go_elapsed = perf_counter() - go_start
     go_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    go_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     
     go_space = subprocess.run(
         ["du", "-sh", '.'],
@@ -207,12 +219,13 @@ if go:
     go_size = go_space.stdout.split()[0]
     
     with open(log_run, 'a') as run:
-            run.write(
-                "#####   GO CHECKPOINT  #####\n\n"
-                f"Execution time: {timedelta(seconds=round(go_elapsed))}\n"
-                f"Peak memory: {go_mem / 1024:.2f} MB\n"
-                f"Project size: {go_size}\n\n"
-            )
+        run.write(
+            "#####   GO CHECKPOINT  #####\n\n"
+            f"Execution time: {timedelta(seconds=round(go_elapsed))}\n"
+            f"Peak memory: {go_mem / 1024:.2f} MB\n"
+            f"Peak memory (children): {go_child_mem / 1024:.2f} MB\n"
+            f"Project size: {go_size}\n\n"
+        )
             
 else:
     pass
@@ -231,6 +244,7 @@ if pah_key:
     
     pah_elapsed = perf_counter() - pah_start
     pah_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    pah_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     
     pah_space = subprocess.run(
         ["du", "-sh", '.'],
@@ -242,12 +256,13 @@ if pah_key:
     pah_size = pah_space.stdout.split()[0]
     
     with open(log_run, 'a') as run:
-            run.write(
-                "#####   PAH CHECKPOINT  #####\n\n"
-                f"Execution time: {timedelta(seconds=round(pah_elapsed))}\n"
-                f"Peak memory: {pah_mem / 1024:.2f} MB\n"
-                f"Project size: {pah_size}\n\n"
-            )
+        run.write(
+            "#####   PAH CHECKPOINT  #####\n\n"
+            f"Execution time: {timedelta(seconds=round(pah_elapsed))}\n"
+            f"Peak memory: {pah_mem / 1024:.2f} MB\n"
+            f"Peak memory (children): {pah_child_mem / 1024:.2f} MB\n"
+            f"Project size: {pah_size}\n\n"
+        )
             
 else:
     pass
