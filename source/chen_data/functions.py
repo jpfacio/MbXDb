@@ -31,7 +31,7 @@ def convert_json_csv(json_file: Path, output: Path) -> pd.DataFrame:
 
 def filtering(df: pd.DataFrame, out: Path) -> pd.DataFrame:
     
-    """Filters a dataframe based on a column content, randomize a number of rows and 
+    """Filters a dataframe based on a column content and 
     changes the download links
     
     Args:
@@ -47,10 +47,6 @@ def filtering(df: pd.DataFrame, out: Path) -> pd.DataFrame:
     removed = total - new
     
     print(f"{removed} MAGs without geographical coordinates removed")
-    
-    print("Randomizing MAGs from metadata")
-    
-    df = df.sample(n=20)
     
     df['download'] = df['download'].str.replace('https://', 'ftp://', regex=False)
     

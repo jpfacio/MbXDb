@@ -9,7 +9,7 @@ import resource
 # Control keys
 
 get_json = False
-metadata = False
+metadata = True
 
 # Defining directories and files
 
@@ -82,14 +82,15 @@ else:
  
 if metadata:
     chen_data = pd.read_csv("tmp/chen_data.csv")
-    metadata = pd.read_csv("tmp/metadata.csv")
 
-    metadata['bin'] = chen_data['sample_name']
-    metadata['sample'] = chen_data["assembly_id"]
-    metadata['project'] = chen_data['project_id']
-    metadata['id_study'] = "https://doi.org/10.1038/s41586-024-07891-2"
-    metadata['coord'] = chen_data['latitude_and_longitude']
-    metadata['date'] = chen_data['collected_date']
+    metadata = pd.DataFrame({
+        'bin': chen_data['sample_name'],
+        'sample': chen_data['assembly_id'],
+        'project': chen_data['project_id'],
+        'id_study': "https://doi.org/10.1038/s41586-024-07891-2",
+        'coord': chen_data['latitude_and_longitude'],
+        'date': chen_data['collected_date'],
+    })
 
     metadata.to_csv("tmp/metadata.csv", index=False)
 else:
