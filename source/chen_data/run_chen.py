@@ -8,7 +8,7 @@ import resource
 
 # Control keys
 
-get_json = False
+get_json = True
 metadata = True
 
 # Defining directories and files

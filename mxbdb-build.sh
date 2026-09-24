@@ -1,6 +1,7 @@
 #!/bin/bash
-run_layout=false
+
 run_chen=false
+run_gulf=false
 run_all=false
 
 # Defining arguments
@@ -13,12 +14,12 @@ fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --layout)
-            run_layout=true
-            shift
-            ;;
         --chen)
             run_chen=true
+            shift
+            ;;
+        --gulf)
+            run_gulf=true
             shift
             ;;
         --all)
@@ -33,14 +34,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 if $run_all; then
-    if $run_chen; then
+    if [ $run_chen = true ] || [ $run_gulf = true ]; then
         echo "Error: Argument --all was used alongside to specific subprojects, this argument enables all."
         exit 1
     fi
     run_chen=true
+    run_gulf=true
 fi
 
-if ! $run_chen; then
+if ! $run_chen && ! $run_gulf; then
     echo "Error: The whole database or specific subprojects are needed to run MXD"
     exit 1
 fi
@@ -127,11 +129,8 @@ if $run_chen; then
     python3 "source/chen_data/run_chen.py"
 fi
 
-if [ ! -f "support_files/interpro2go.txt" ]; then
-    echo "Downloading InterPro2GO mapping"
-    if ! curl -fsSL "https://ftp.ebi.ac.uk/pub/databases/interpro/current_release/interpro2go" -o "support_files/interpro2go.txt"; then
-        echo "WARNING: failed to download interpro2go mapping"
-    fi
+if $run_gulf; then
+    python3 "source/gulf_data/run_gulf.py"
 fi
 
 python "source/processing_pipeline/run_pp.py"
