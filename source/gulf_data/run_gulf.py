@@ -8,17 +8,25 @@ import functions as f
 
 # Control keys
 
-build_jsonl = True
-download_srrs = True
+build_jsonl = False
+download_srrs = False
+assembly = True
 
 # Defining directories and files
 
 tmp = Path("tmp")
-out_dir = tmp / "gulf_tmps"
-out_dir.mkdir(exist_ok=True)
-out = out_dir / "gulf.jsonl"
 log = Path("log")
-log_run = Path("log/run.log")
+out_gulf_dir = tmp / "gulf_tmps"
+out_srr_dir = out_gulf_dir / "srr"
+out_assembly_dir = out_gulf_dir / "assembly"
+out_jsonl = out_srr_dir / "gulf.jsonl"
+log_run = log / "run.log"
+
+tmp.mkdir(parents=True, exist_ok=True)
+log.mkdir(parents=True, exist_ok=True)
+out_gulf_dir.mkdir(parents=True, exist_ok=True)
+out_srr_dir.mkdir(parents=True, exist_ok=True)
+out_assembly_dir.mkdir(parents=True, exist_ok=True)
 
 # Build gulf.jsonl from SRR metadata
 
@@ -34,7 +42,7 @@ if build_jsonl:
 
     print(f"SRRs : {len(srr_info)}")
 
-    with open(out, "w") as fh:
+    with open(out_jsonl, "w") as fh:
         for row in srr_info:
             fh.write(f"{row}\n")
 
@@ -42,7 +50,7 @@ if build_jsonl:
     peak_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
     space = subprocess.run(
-        ["du", "-sh", '.'],
+        ["du", "-sh", str(out_gulf_dir)],
         capture_output=True,
         text=True,
         check=True
@@ -68,7 +76,7 @@ if build_jsonl:
 # ======================================================================
 
 all_srrs = []
-with open(out) as fh:
+with open(out_jsonl) as fh:
     for line in fh:
         all_srrs.append(ast.literal_eval(line))
 
@@ -86,16 +94,16 @@ if download_srrs:
 
     completed = f.acq.download_srrs(
         srrs=test_srrs,                   # TEST SUBSET: single SRR run only
-        outdir=str(out_dir),
+        outdir=str(out_srr_dir),
     )
     # Full pool instead:
-    # completed = f.acq.download_srrs(jsonl=str(out), outdir=str(out_dir))
+    # completed = f.acq.download_srrs(jsonl=str(out_jsonl), outdir=str(out_srr_dir))
 
     fetch_elapsed = perf_counter() - fetch_start
     peak_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
     space = subprocess.run(
-        ["du", "-sh", str(out_dir)],
+        ["du", "-sh", str(out_srr_dir)],
         capture_output=True,
         text=True,
         check=True
