@@ -85,11 +85,13 @@ if metadata:
 
     metadata = pd.DataFrame({
         'bin': chen_data['sample_name'],
+        'srr': "",
         'sample': chen_data['assembly_id'],
         'project': chen_data['project_id'],
-        'id_study': "https://doi.org/10.1038/s41586-024-07891-2",
-        'coord': chen_data['latitude_and_longitude'],
+        'study_id': "https://doi.org/10.1038/s41586-024-07891-2",
         'date': chen_data['collected_date'],
+        'coord': chen_data['latitude_and_longitude'],
+        'depth': "",
     })
 
     metadata.to_csv("tmp/metadata.csv", index=False)

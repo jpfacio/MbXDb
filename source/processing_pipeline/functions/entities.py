@@ -86,7 +86,7 @@ def create_bins_ent(path: Path) -> pd.DataFrame:
     sample = list(metadata['sample'])
     project = list(metadata['project'])
     date = list(metadata['date'])
-    study = list(metadata['id_study'])
+    study = list(metadata['study_id'])
     
     bins_ent = pd.DataFrame({"Bin": bins,
                              "Sample": sample,
@@ -114,7 +114,7 @@ def create_studies_ent(meta: Path) -> pd.DataFrame:
     meta = pd.read_csv(meta)
     studies = []
 
-    for doi in meta["id_study"].unique():
+    for doi in meta["study_id"].unique():
 
         raw_data = cn.content_negotiation(ids=doi, format="citeproc-json")
         data = json.loads(raw_data)

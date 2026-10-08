@@ -15,6 +15,8 @@ dependencies:
   - prodigal        
   - pyrodigal        
   - megahit
+  - metabat2
+  - bowtie2
   - trnascan-se
   - aragorn
   - infernal
@@ -23,6 +25,7 @@ dependencies:
   - pigz
   - pbzip2
   - sra-tools        
+  - samtools
   - ncbi-datasets-cli 
   - biopython
   - pandas
