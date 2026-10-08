@@ -1,4 +1,4 @@
-name: MbXDb-env
+name: mbxdb-env
 channels:
   - conda-forge
   - bioconda
@@ -14,6 +14,9 @@ dependencies:
   - hmmer
   - prodigal        
   - pyrodigal        
+  - megahit
+  - metabat2
+  - bowtie2
   - trnascan-se
   - aragorn
   - infernal
@@ -22,6 +25,7 @@ dependencies:
   - pigz
   - pbzip2
   - sra-tools        
+  - samtools
   - ncbi-datasets-cli 
   - biopython
   - pandas

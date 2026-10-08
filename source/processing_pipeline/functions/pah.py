@@ -225,7 +225,7 @@ def run(base_dir: str = "support_files/pah_db_v2.4",
     """
     if shutil.which("diamond") is None:
         raise RuntimeError(
-            "diamond not found on PATH - activate the MbXDb-env")
+            "diamond not found on PATH - activate the mbxdb-env")
 
     n_seqs = build_query_faa(Path(genes_csv), Path(query_faa))
     print(f"Query fasta: {n_seqs:,} sequences -> {query_faa}")

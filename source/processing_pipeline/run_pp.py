@@ -12,12 +12,12 @@ import os
 
 # Control Keys
 
-qc = False
+qc = True
 seqkit = False
-bakta_key= False
-ent_key = False
-go = False
-pah_key = False
+bakta_key= True
+ent_key = True
+go = True
+pah_key = True
 
 # Path definitions
 

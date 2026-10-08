@@ -50,7 +50,7 @@ def filtering(df: pd.DataFrame, out: Path) -> pd.DataFrame:
     
     df['download'] = df['download'].str.replace('https://', 'ftp://', regex=False)
     
-    df = df.sample(n=3).reset_index(drop=True)
+    df = df.sample(n=1).reset_index(drop=True)
     
     df.to_csv(out, index=False)
     

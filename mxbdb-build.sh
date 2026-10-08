@@ -98,7 +98,7 @@ if [ -z "$skip_data" ]; then
         echo "Tmp directory created"
 
         cat > "$tmp_dir"/metadata.csv <<EOF
-bin,sample,project,id_study,coord,date
+bin,srr,sample,project,study_id,date,coord,depth
 EOF
     else
         echo "Failed to create: $tmp_dir"
