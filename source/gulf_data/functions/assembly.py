@@ -35,6 +35,13 @@ def assembly(srrs: list,
         fwd = path[0]
         rev = path[1]
         srr = fwd.stem.split("_")[0]
+
+        for read in (fwd, rev):
+            if not read.exists():
+                raise FileNotFoundError(
+                    f"reads for {srr} missing ({read.name}) - "
+                    "run the download stage first"
+                )
         
         target = outdir / srr
         

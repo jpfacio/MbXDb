@@ -10,11 +10,11 @@ import functions as f
 
 # Control keys
 
-build_jsonl = False
-download_srrs = False
-assembly = False
-mapping = False
-binning = False
+build_jsonl = True
+download_srrs = True
+assembly = True
+mapping = True
+binning = True
 metadata = True
 
 # Defining directories and files
@@ -41,11 +41,23 @@ srrs = ["SRR4342129", "SRR4342130", "SRR4342133", "SRR4342134", "SRR4342135", "S
 
 # Build gulf.jsonl from SRR metadata
 
+# Hardcoded BioProject -> publication DOI. get_srr_info_batch does not carry
+# DOIs, so they are stamped here at write time; keeps the metadata anchor's
+# study_id populated across rebuilds.
+
+bioproject_dois = {
+    "PRJNA340003": "10.1038/s41597-025-05736-9",
+    "PRJNA870083": "10.1128/aem.00799-26",
+}
+
 if build_jsonl:
 
     fetch_start = perf_counter()
 
     srr_info = f.acq.get_srr_info_batch(srrs)
+
+    for row in srr_info:
+        row["doi"] = bioproject_dois.get(row.get("bioproject"), "")
 
     print(f"SRRs : {len(srr_info)}")
 
@@ -86,7 +98,7 @@ if build_jsonl:
 # a fresh checkout dies here before reaching any gated stage.
 # ======================================================================
 
-if download_srrs or assembly:
+if download_srrs or assembly or mapping or binning:
     rng = random.Random(42)         
 
     all_srrs = []
@@ -145,9 +157,8 @@ if assembly:
     
     fetch_start = perf_counter()
     
-    ass_test = ['SRR21147275', 'SRR21147278']
     completed = f.ass.assembly(
-        srrs=ass_test,                   # TEST SUBSET: two SRR runs only
+        srrs=test_srrs,                   # TEST SUBSET: two random SRR runs only
         outdir=out_assembly_dir
     )
     # Full pool instead:
@@ -197,10 +208,9 @@ if mapping:
 
     fetch_start = perf_counter()
 
-    map_test = ['SRR21147275', 'SRR21147278']
     completed_idx = f.ass.build_index(out_assembly_dir)
     completed = f.ass.map_reads(
-        srrs=map_test,                    # TEST SUBSET: two SRR runs only
+        srrs=test_srrs,                    # TEST SUBSET: two random SRR runs only
         read_dir=out_srr_dir,
         outdir=out_assembly_dir,
     )
@@ -236,9 +246,8 @@ if binning:
 
     fetch_start = perf_counter()
 
-    bin_test = ['SRR21147275', 'SRR21147278']
     completed = f.ass.bin_contigs(
-        srrs=bin_test,                    # TEST SUBSET: two SRR runs only
+        srrs=test_srrs,                    # TEST SUBSET: two random SRR runs only
         outdir=out_assembly_dir,
         bindir=out_bin_dir,
     )
