@@ -1,0 +1,15 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.8
+
+%files
+    environment.yml /tmp/environment.yml
+
+%post
+    micromamba create -y -n mbxdb-env -f /tmp/environment.yml
+    micromamba clean -a -y
+
+%environment
+    export MAMBA_DEFAULT_ENV=mbxdb-env
+    export MAMBA_ROOT_PREFIX=/opt/conda
+    export PATH=/opt/conda/envs/mbxdb-env/bin:/opt/conda/bin:$PATH
+    export LC_ALL=C.UTF-8
