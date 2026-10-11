@@ -2,10 +2,10 @@ Bootstrap: docker
 From: mambaorg/micromamba:1.5.8
 
 %files
-    environment.yml /tmp/environment.yml
+    environment.yml /opt/mbxdb/environment.yml
 
 %post
-    micromamba create -y -n mbxdb-env -f /tmp/environment.yml
+    micromamba create -y -n mbxdb-env -f /opt/mbxdb/environment.yml
     micromamba clean -a -y
 
 %environment
