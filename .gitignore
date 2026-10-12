@@ -4,7 +4,8 @@ __pycache__/
 Data/
 mbxdb.db
 mxd.db
-log
+log/*
+!log/.gitkeep
 source/database/__pycache__/
 db-light/
 *.sif

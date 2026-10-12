@@ -21,6 +21,8 @@ set -euo pipefail
 
 cd "$SLURM_SUBMIT_DIR"
 
+mkdir -p log
+
 ARGS="${*:---chen}"
 
 echo "Job $SLURM_JOB_ID on $(hostname), args: $ARGS"
