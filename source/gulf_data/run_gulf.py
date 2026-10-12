@@ -1,8 +1,6 @@
 from pathlib import Path
 import subprocess
 import resource
-import ast
-import random
 import shutil
 from time import perf_counter
 from datetime import timedelta
@@ -90,26 +88,19 @@ if build_jsonl:
 
 # ======================================================================
 # TEST SUBSET ##########################################################
-# Read gulf.jsonl and keep TWO random SRR runs from the pool, to test the
-# pipeline on a small subset. The subset lives in memory only (test_srrs).
-# REMOVE THIS WHOLE BLOCK (and the `srrs=test_srrs` argument in the
-# download and assembly stages below) to run the full SRR pool from
-# gulf.jsonl. Only read when a stage that uses it is enabled, otherwise
-# a fresh checkout dies here before reaching any gated stage.
+# Fixed test subset: two SRRs from PRJNA340003 (SRR4342129, SRR4342130)
+# and two from PRJNA870083 (SRR21147274, SRR21147275). Edit the SRR list
+# here to test other runs. REMOVE THIS WHOLE BLOCK (and the
+# `srrs=test_srrs` arguments in the stages below) to run the full pool
+# from gulf.jsonl.
 # ======================================================================
 
-if download_srrs or assembly or mapping or binning:
-    rng = random.Random(42)         
-
-    all_srrs = []
-    with open(out_jsonl) as fh:
-        for line in fh:
-            all_srrs.append(ast.literal_eval(line))
-
-    pool = sorted({row["srr"] for row in all_srrs if row.get("srr")})
-
-    k = min(2, len(pool))
-    test_srrs = rng.sample(pool, k) if k else []
+test_srrs = [
+    "SRR4342129",                      # PRJNA340003
+    "SRR4342130",                      # PRJNA340003
+    "SRR21147274",                     # PRJNA870083
+    "SRR21147275",                     # PRJNA870083
+]
 
 # ======================================================================
 
@@ -122,7 +113,7 @@ if download_srrs:
     fetch_start = perf_counter()
 
     completed = f.acq.download_srrs(
-        srrs=test_srrs,                   # TEST SUBSET: two random SRR runs only
+        srrs=test_srrs,                   # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
         outdir=str(out_srr_dir),
     )
     # Full pool instead:
@@ -158,7 +149,7 @@ if assembly:
     fetch_start = perf_counter()
     
     completed = f.ass.assembly(
-        srrs=test_srrs,                   # TEST SUBSET: two random SRR runs only
+        srrs=test_srrs,                   # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
         outdir=out_assembly_dir
     )
     # Full pool instead:
@@ -210,7 +201,7 @@ if mapping:
 
     completed_idx = f.ass.build_index(out_assembly_dir)
     completed = f.ass.map_reads(
-        srrs=test_srrs,                    # TEST SUBSET: two random SRR runs only
+        srrs=test_srrs,                    # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
         read_dir=out_srr_dir,
         outdir=out_assembly_dir,
     )
@@ -247,7 +238,7 @@ if binning:
     fetch_start = perf_counter()
 
     completed = f.ass.bin_contigs(
-        srrs=test_srrs,                    # TEST SUBSET: two random SRR runs only
+        srrs=test_srrs,                    # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
         outdir=out_assembly_dir,
         bindir=out_bin_dir,
     )
