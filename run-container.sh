@@ -6,8 +6,7 @@ sif="$repo/mbxdb.sif"
 
 if [ ! -f "$sif" ]; then
     echo "Image not found: $sif" >&2
-    echo "Build it first (on a node with apptainer):" >&2
-    echo "  apptainer build $sif docker-archive://$repo/mbxdb-docker.tar" >&2
+    echo "Build it first:  ./build-container.sh" >&2
     exit 1
 fi
 
