@@ -10,6 +10,26 @@ if [ ! -f "$sif" ]; then
     exit 1
 fi
 
+# Locate the container runtime (apptainer preferred, singularity fallback).
+# Some clusters only expose it via "module load" on compute nodes; in that case
+# set CONTAINER_RUNTIME or load the module before submitting.
+runtime=""
+for r in "${CONTAINER_RUNTIME:-}" apptainer singularity \
+         /usr/bin/apptainer /usr/bin/singularity \
+         /usr/local/bin/apptainer /usr/local/bin/singularity; do
+    if [ -n "$r" ] && command -v "$r" >/dev/null 2>&1; then
+        runtime="$r"
+        break
+    fi
+done
+
+if [ -z "$runtime" ]; then
+    echo "Error: neither apptainer nor singularity found." >&2
+    echo "Try: 'module load apptainer' on the compute node, or set CONTAINER_RUNTIME=/path/to/runtime." >&2
+    exit 1
+fi
+echo "Runtime: $runtime"
+
 binds="$repo"
 
 # Bakta database (gitignored, repo-sibling)
@@ -46,6 +66,6 @@ fi
 
 cd "$repo"
 
-exec apptainer "${exec_args[@]}" \
+exec "$runtime" "${exec_args[@]}" \
     "$sif" \
     bash -c 'export PATH=/opt/conda/envs/mbxdb-env/bin:$PATH; exec ./mxbdb-build.sh "$@"' _ "$@"
