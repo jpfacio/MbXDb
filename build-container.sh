@@ -29,10 +29,10 @@ fi
 
 if [ -f mbxdb-docker.tar ]; then
     echo "Building mbxdb.sif from mbxdb-docker.tar (offline)..."
-    "$runtime" build mbxdb.sif docker-archive://mbxdb-docker.tar
+    "$runtime" build --fakeroot mbxdb.sif docker-archive://mbxdb-docker.tar
 else
     echo "Building mbxdb.sif from mbxdb.def (needs internet)..."
-    "$runtime" build mbxdb.sif mbxdb.def
+    "$runtime" build --fakeroot mbxdb.sif mbxdb.def
 fi
 
 echo "Done: $repo/mbxdb.sif"
