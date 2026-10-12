@@ -2,7 +2,7 @@ FROM mambaorg/micromamba:1.5.8
 
 COPY environment.yml /tmp/environment.yml
 
-RUN micromamba create -y -j 2 -n mbxdb-env -f /tmp/environment.yml \
+RUN micromamba create -y -n mbxdb-env -f /tmp/environment.yml \
     && micromamba clean -a -y
 
 # conda-forge megahit 1.2.9 is built for AVX2 and dies (SIGILL) on older CPUs;
