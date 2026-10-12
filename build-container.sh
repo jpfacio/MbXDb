@@ -27,12 +27,23 @@ if [ -f mbxdb.sif ]; then
     exit 0
 fi
 
+src="mbxdb.def"
 if [ -f mbxdb-docker.tar ]; then
     echo "Building mbxdb.sif from mbxdb-docker.tar (offline)..."
-    "$runtime" build --fakeroot mbxdb.sif docker-archive://mbxdb-docker.tar
+    src="docker-archive://mbxdb-docker.tar"
 else
     echo "Building mbxdb.sif from mbxdb.def (needs internet)..."
-    "$runtime" build --fakeroot mbxdb.sif mbxdb.def
 fi
+
+# Build without --fakeroot first (Apptainer on login nodes often uses setuid);
+# retry with --fakeroot only if the runtime demands root.
+build() {
+    if "$runtime" build mbxdb.sif "$src"; then
+        return 0
+    fi
+    echo "First attempt failed (root/fakeroot); retrying with --fakeroot..." >&2
+    "$runtime" build --fakeroot mbxdb.sif "$src"
+}
+build
 
 echo "Done: $repo/mbxdb.sif"
