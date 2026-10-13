@@ -77,10 +77,13 @@ def cmd_pah_top(args: argparse.Namespace) -> None:
     pah = load_pah()
     no_filters = not any([args.family, args.bin,
                           args.min_identity is not None,
-                          args.min_qcov is not None])
+                          args.min_qcov is not None,
+                          args.max_evalue is not None,
+                          args.min_bitscore is not None])
     if no_filters and args.top is None:
         sys.exit("error: 'pah top' needs at least one filter "
-                 "(--family/--bin/--min-identity/--min-qcov) or -n/--top")
+                 "(--family/--bin/--min-identity/--min-qcov/"
+                 "--max-evalue/--min-bitscore) or -n/--top")
     if args.family:
         pah = pah[pah["Family"] == args.family]
     if args.bin:
@@ -89,7 +92,11 @@ def cmd_pah_top(args: argparse.Namespace) -> None:
         pah = pah[pah["Identity"] >= args.min_identity]
     if args.min_qcov is not None:
         pah = pah[pah["Qcov"] >= args.min_qcov]
-    result = pah.sort_values("Bitscore", ascending=False)
+    if args.max_evalue is not None:
+        pah = pah[pah["Evalue"] <= args.max_evalue]
+    if args.min_bitscore is not None:
+        pah = pah[pah["Bitscore"] >= args.min_bitscore]
+    result = pah.sort_values("Evalue", ascending=True)
     if args.top:
         result = result.head(args.top)
     emit(result, args)
@@ -146,11 +153,13 @@ def main(argv: list[str] | None = None) -> None:
 
     p_pah = sub.add_parser("pah", help="query the pah entity")
     psub = p_pah.add_subparsers(dest="pah_cmd", required=True)
-    p_top = psub.add_parser("top", help="list PAH hits sorted by bitscore")
+    p_top = psub.add_parser("top", help="list PAH hits sorted by evalue")
     p_top.add_argument("--family", help="PAH family (e.g. nahAc, nidA, phdF)")
     p_top.add_argument("--bin", help="restrict to a single bin")
     p_top.add_argument("--min-identity", type=float, help="minimum %% identity")
     p_top.add_argument("--min-qcov", type=float, help="minimum query coverage")
+    p_top.add_argument("--max-evalue", type=float, help="maximum evalue")
+    p_top.add_argument("--min-bitscore", type=float, help="minimum bitscore")
     p_top.add_argument("-n", "--top", type=int, help="show only the N best hits")
     add_io_args(p_top)
     p_top.set_defaults(func=cmd_pah_top)
