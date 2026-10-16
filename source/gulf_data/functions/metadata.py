@@ -132,7 +132,7 @@ def _fetch_biosample_batch(accessions: list, max_workers: int = 4) -> dict:
 def fetch_metadata(
     jsonl: Path = Path("tmp/gulf_tmps/srr/gulf.jsonl"),
     bindir: Path = Path("Data/Raw/Bins"),
-    out_csv: Path = Path("tmp/metadata.csv"),
+    out_csv: Path = Path("Data/metadata.csv"),
     max_workers: int = 4,
 ) -> int:
     """Build the metadata.csv anchor for the processing pipeline.

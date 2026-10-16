@@ -1,7 +1,6 @@
 from pathlib import Path
 import subprocess
 import resource
-import shutil
 from time import perf_counter
 from datetime import timedelta
 import functions as f
@@ -154,24 +153,7 @@ if assembly:
     )
     # Full pool instead:
     # completed = f.ass.assembly(srrs=pool, outdir=out_assembly_dir)
-    
-    for d in sorted(out_assembly_dir.iterdir()):
-        
-        if not d.is_dir():
-            continue
-        
-        keep = {f"{d.name}.fa", f"{d.name}_index"}
-        
-        for item in d.iterdir():
-            
-            if item.name in keep:
-                continue
-            
-            if item.is_dir():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
-    
+
     fetch_elapsed = perf_counter() - fetch_start
     peak_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
@@ -272,6 +254,6 @@ if binning:
 if metadata:
     
     gulf_bins = Path("Data/Raw/Bins")
-    out_metadata = tmp / "metadata.csv"
+    out_metadata = Path("Data/metadata.csv")
     f.metadata.move_bins(out_bin_dir, gulf_bins)
     f.metadata.fetch_metadata(out_jsonl, gulf_bins, out_metadata)

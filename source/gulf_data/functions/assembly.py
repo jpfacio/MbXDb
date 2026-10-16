@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
@@ -316,4 +317,73 @@ def bin_contigs(srrs: list,
                     print(f"[ERROR] {futures[future]}: {e}")
 
     return completed
+
+
+def _remove_path(path: Path, attempts: int = 3) -> bool:
+    """Remove a file or directory, retrying around transient filesystem races.
+
+    MEGAHIT can still be flushing its working directory as it exits, so a
+    plain rmtree occasionally hits ENOTEMPTY. Each attempt is separated by a
+    short sleep, with a final forced removal as a fallback.
+
+    Returns:
+        bool: True when the path no longer exists afterwards
+    """
+    for _ in range(attempts):
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+            return True
+        except OSError:
+            time.sleep(1)
+
+    try:
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        elif path.exists():
+            path.unlink()
+    except OSError:
+        pass
+
+    return not path.exists()
+
+
+def clean_assembly_dirs(
+    outdir: Path = Path("tmp/gulf_tmps/assembly")
+) -> int:
+    """Discard MEGAHIT leftovers from each assembly directory.
+
+    Only <srr>.fa and <srr>_index survive; intermediate_contigs/, log and
+    options.json are removed. A stubborn item is reported and skipped rather
+    than aborting the stage, so the run can continue to mapping/binning.
+
+    Args:
+        outdir (Path): root holding one directory per SRR
+
+    Returns:
+        int: number of items removed
+    """
+    outdir = Path(outdir)
+    removed = 0
+
+    for d in sorted(outdir.iterdir()):
+
+        if not d.is_dir():
+            continue
+
+        keep = {f"{d.name}.fa", f"{d.name}_index"}
+
+        for item in d.iterdir():
+
+            if item.name in keep:
+                continue
+
+            if _remove_path(item):
+                removed += 1
+            else:
+                print(f"[WARN] could not remove {item}")
+
+    return removed
 

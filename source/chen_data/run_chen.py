@@ -94,7 +94,7 @@ if metadata:
         'depth': "",
     })
 
-    metadata.to_csv("tmp/metadata.csv", index=False)
+    metadata.to_csv("Data/metadata.csv", index=False)
 else:
     pass
 

@@ -1,9 +1,11 @@
 import subprocess
+import gzip
 from pathlib import Path
 from io import StringIO
 import pandas as pd
 import os
 import time
+from Bio import SeqIO
 
 def seqkit_summary(data_dir: str, output: str) -> pd.DataFrame:
     
@@ -280,6 +282,118 @@ def final_processing(seqkit: pd.DataFrame, checkm: pd.DataFrame, tmp_file: Path)
     df.to_csv(table_path, sep="\t", index=False)
     
     subprocess.run(["rm", "tmp/summary_stats.tsv", "tmp/checkm_results.tsv"], check=True)
+
+
+def _n50(lengths: list) -> int:
+    """N50 of a list of contig lengths (largest contig covering half the assembly)."""
+    if not lengths:
+        return 0
+
+    ordered = sorted(lengths, reverse=True)
+    half = sum(ordered) / 2
+    running = 0
+
+    for length in ordered:
+        running += length
+        if running >= half:
+            return length
+
+    return ordered[-1]
+
+
+def fallback_summary(
+    data_dir: Path = Path("Data/Raw/Bins"),
+    output: Path = Path("tmp"),
+) -> pd.DataFrame:
+    """Recreate the seqkit QC steps without the seqkit binary.
+
+    Mirrors sum_stats.seqkit_summary + seq_filter + seq_remove_500 in pure
+    Python: computes num_seqs/N50/GC(%) from each *.fa.gz, drops bins with
+    more than 1000 contigs, trims contigs below 500bp and writes the bins
+    out uncompressed (*.fa), then persists tmp/summary_stats.tsv with the
+    columns final_processing expects. Used when seqkit is disabled but no
+    prior summary is available.
+
+    Args:
+        data_dir (Path): directory of flat gzipped bins
+        output (Path): where summary_stats.tsv is written
+
+    Returns:
+        pd.DataFrame: summary table with columns file, num_seqs, N50, GC(%)
+    """
+    data_dir = Path(data_dir)
+    output = Path(output)
+
+    gz_files = sorted(data_dir.glob("*.fa.gz"))
+
+    if not gz_files:
+        raise FileNotFoundError(
+            f"seqkit is disabled and no bins were found under {data_dir}; "
+            "expected flat *.fa.gz files to build a summary from."
+        )
+
+    rows = []
+
+    for gz in gz_files:
+
+        lengths = []
+        gc = 0
+        total = 0
+
+        with gzip.open(gz, "rt") as fh:
+            for record in SeqIO.parse(fh, "fasta"):
+                seq = str(record.seq)
+                lengths.append(len(seq))
+                total += len(seq)
+                upper = seq.upper()
+                gc += upper.count("G") + upper.count("C")
+
+        if not lengths:
+            print(f"{gz.name}: empty, skipped.")
+            continue
+
+        rows.append({
+            "file": str(gz),
+            "num_seqs": len(lengths),
+            "N50": _n50(lengths),
+            "GC(%)": round(gc / total * 100, 2) if total else 0.0,
+            "_path": gz,
+        })
+
+    dropped = 0
+    for row in rows:
+        if row["num_seqs"] > 1000:
+            row["_path"].unlink(missing_ok=True)
+            dropped += 1
+
+    print(f"{dropped} files removed")
+
+    kept = [row for row in rows if row["num_seqs"] <= 1000]
+
+    for row in kept:
+
+        src = row["_path"]
+        dest = src.with_suffix("")
+
+        with gzip.open(src, "rt") as fh_in, open(dest, "w") as fh_out:
+            for record in SeqIO.parse(fh_in, "fasta"):
+                if len(record.seq) >= 500:
+                    fh_out.write(f">{record.id}\n{record.seq}\n")
+
+        src.unlink(missing_ok=True)
+
+        print(f"{dest.name}: trimmed, uncompressed.")
+
+    df = pd.DataFrame(
+        [{"file": r["file"], "num_seqs": r["num_seqs"],
+          "N50": r["N50"], "GC(%)": r["GC(%)"]} for r in kept]
+    )
+
+    out_file = output / "summary_stats.tsv"
+    df.to_csv(out_file, sep="\t", index=False)
+
+    return df
+
     
 
 

@@ -25,7 +25,7 @@ data_dir=Path("Data/Raw/Bins")
 tmp=Path("tmp")
 log=Path("log")
 log_run=Path("log/run.log")
-metadata=Path("tmp/metadata.csv")
+metadata=Path("Data/metadata.csv")
 
 
 ###########################################
@@ -46,14 +46,33 @@ if qc:
         f.st.seq_remove_500(data_dir)
     
     else:
-        print("Skipping seqkit QC steps, loading existing summary")
-        
-        st_summary = pd.read_csv(tmp / "summary_stats.tsv", sep="\t")
+        summary_path = tmp / "summary_stats.tsv"
+
+        if summary_path.exists():
+            print("Skipping seqkit QC steps, loading existing summary")
+
+            st_summary = pd.read_csv(summary_path, sep="\t")
+
+        else:
+            print("seqkit disabled and no existing summary: generating one in Python")
+
+            st_summary = f.st.fallback_summary(data_dir, tmp)
     
     checkm_data = f.st.run_checkm(data_dir, tmp, log)
     
     f.st.final_processing(st_summary, checkm_data, tmp)
-    
+
+    if metadata.exists():
+        qc_bins = pd.read_csv(tmp / "qc_metrics.tsv", sep="\t")
+        survivors = qc_bins["file"].map(lambda p: Path(p).stem)
+
+        meta_df = pd.read_csv(metadata)
+        n_before = len(meta_df)
+        meta_df = meta_df[meta_df["bin"].isin(survivors)]
+        meta_df.to_csv(metadata, index=False)
+
+        print(f"{n_before - len(meta_df)} metadata rows removed for low quality MAGs.")
+
     st_elapsed = perf_counter() - st_start
     st_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     st_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss

@@ -97,7 +97,7 @@ if [ -z "$skip_data" ]; then
     if mkdir -p "$tmp_dir"; then
         echo "Tmp directory created"
 
-        cat > "$tmp_dir"/metadata.csv <<EOF
+        cat > "$data_dir"/metadata.csv <<EOF
 bin,srr,sample,project,study_id,date,coord,depth
 EOF
     else
@@ -126,14 +126,23 @@ else
 fi
 
 if $run_chen; then
-    python3 "source/chen_data/run_chen.py"
+    if ! python3 "source/chen_data/run_chen.py"; then
+        echo "Error: chen data stage failed" >&2
+        exit 1
+    fi
 fi
 
 if $run_gulf; then
-    python3 "source/gulf_data/run_gulf.py"
+    if ! python3 "source/gulf_data/run_gulf.py"; then
+        echo "Error: gulf data stage failed" >&2
+        exit 1
+    fi
 fi
 
-python "source/processing_pipeline/run_pp.py"
+if ! python "source/processing_pipeline/run_pp.py"; then
+    echo "Error: processing pipeline failed" >&2
+    exit 1
+fi
 
 
 
