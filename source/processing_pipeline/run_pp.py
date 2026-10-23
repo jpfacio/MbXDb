@@ -12,12 +12,13 @@ import os
 
 # Control Keys
 
-qc = True
+qc = False
 seqkit = False
 bakta_key= True
 ent_key = True
-go = True
+go = False
 pah_key = True
+go_pah = True
 
 # Path definitions
 
@@ -286,9 +287,58 @@ if pah_key:
 else:
     pass
 
-   
 
+#############################################
+##########     PAH-GO CHECKPOINT     ########
+#############################################
 
+if pah_key and go_pah:
+
+    print("Running GO annotation module on PAH genes")
+
+    pah_go_start = perf_counter()
+
+    pah_df = pd.read_csv("Data/Entities/pah.csv")
+    pah_gene_tags = set(pah_df["Gene_Tag"].unique())
+
+    genes_all = pd.read_csv("Data/Entities/genes.csv")
+    pah_genes = genes_all[genes_all["Gene_Tag"].isin(pah_gene_tags)].copy()
+
+    annotations_pah = f.go.create_database_metadata(pah_genes)
+
+    annotations_pah = f.go.fetch_uniref_annotations(annotations_pah)
+
+    ipr2go = f.go.parse_interpro2go("support_files/interpro2go.txt")
+    annotations_pah = f.go.fetch_go_terms(annotations_pah, ipr2go)
+
+    annotations_pah = f.go.resolve_go_names(annotations_pah, "support_files/go-basic.obo")
+
+    annotations_pah.to_csv("Data/Entities/pah_annotations.csv", index=False)
+
+    pah_go_elapsed = perf_counter() - pah_go_start
+    pah_go_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    pah_go_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+
+    pah_go_space = subprocess.run(
+        ["du", "-sh", '.'],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+
+    pah_go_size = pah_go_space.stdout.split()[0]
+
+    with open(log_run, 'a') as run:
+        run.write(
+            "#####   PAH-GO CHECKPOINT   #####\n\n"
+            f"Execution time: {timedelta(seconds=round(pah_go_elapsed))}\n"
+            f"Peak memory: {pah_go_mem / 1024:.2f} MB\n"
+            f"Peak memory (children): {pah_go_child_mem / 1024:.2f} MB\n"
+            f"Project size: {pah_go_size}\n\n"
+        )
+
+else:
+    pass
 
 
 

@@ -43,8 +43,8 @@ srrs = ["SRR4342129", "SRR4342130", "SRR4342133", "SRR4342134", "SRR4342135", "S
 # study_id populated across rebuilds.
 
 bioproject_dois = {
-    "PRJNA340003": "10.1038/s41597-025-05736-9",
-    "PRJNA870083": "10.1128/aem.00799-26",
+    "PRJNA1077797": "10.1093/ismeco/ycae164",
+    "PRJNA832762": "10.1016/j.jece.2023.109413",
 }
 
 if build_jsonl:
@@ -87,18 +87,14 @@ if build_jsonl:
 
 # ======================================================================
 # TEST SUBSET ##########################################################
-# Fixed test subset: two SRRs from PRJNA340003 (SRR4342129, SRR4342130)
-# and two from PRJNA870083 (SRR21147274, SRR21147275). Edit the SRR list
-# here to test other runs. REMOVE THIS WHOLE BLOCK (and the
-# `srrs=test_srrs` arguments in the stages below) to run the full pool
+# Fixed test subset: currently a single SRR (SRR4342129, PRJNA340003).
+# Edit the SRR list here to test other runs. REMOVE THIS WHOLE BLOCK (and
+# the `srrs=test_srrs` arguments in the stages below) to run the full pool
 # from gulf.jsonl.
 # ======================================================================
 
 test_srrs = [
-    "SRR4342129",                      # PRJNA340003
-    "SRR4342130",                      # PRJNA340003
-    "SRR21147274",                     # PRJNA870083
-    "SRR21147275",                     # PRJNA870083
+   "SRR34748663", "SRR34748664", "SRR18944112", "SRR18944113"
 ]
 
 # ======================================================================
@@ -112,7 +108,7 @@ if download_srrs:
     fetch_start = perf_counter()
 
     completed = f.acq.download_srrs(
-        srrs=test_srrs,                   # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
+        srrs=test_srrs,                      # TEST SUBSET: single SRR run for now
         outdir=str(out_srr_dir),
     )
     # Full pool instead:
@@ -148,7 +144,7 @@ if assembly:
     fetch_start = perf_counter()
     
     completed = f.ass.assembly(
-        srrs=test_srrs,                   # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
+        srrs=test_srrs,                   # TEST SUBSET: single SRR run for now
         outdir=out_assembly_dir
     )
     # Full pool instead:
@@ -183,7 +179,7 @@ if mapping:
 
     completed_idx = f.ass.build_index(out_assembly_dir)
     completed = f.ass.map_reads(
-        srrs=test_srrs,                    # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
+        srrs=test_srrs,                    # TEST SUBSET: single SRR run for now
         read_dir=out_srr_dir,
         outdir=out_assembly_dir,
     )
@@ -220,7 +216,7 @@ if binning:
     fetch_start = perf_counter()
 
     completed = f.ass.bin_contigs(
-        srrs=test_srrs,                    # TEST SUBSET: fixed 2+2 SRR runs (2 per project)
+        srrs=test_srrs,                    # TEST SUBSET: single SRR run for now
         outdir=out_assembly_dir,
         bindir=out_bin_dir,
     )

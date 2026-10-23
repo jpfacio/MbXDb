@@ -199,6 +199,8 @@ def download_srrs(
     """
 
     if srrs is not None:
+        if isinstance(srrs, str):
+            srrs = [srrs]
         srrs = sorted(set(x for x in srrs if x))
     else:
         srrs = []
