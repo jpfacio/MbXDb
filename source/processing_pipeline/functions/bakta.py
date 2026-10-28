@@ -18,7 +18,8 @@ def path_to_list(bins: Path) -> list:
     
     return files
     
-def bakta_analysis(bin: Path, db: str, output: Path) -> None:
+def bakta_analysis(bin: Path, db: str, output: Path,
+                   log_dir: Path = Path("log")) -> None:
     
     """Run Bakta analysis
     
@@ -26,6 +27,7 @@ def bakta_analysis(bin: Path, db: str, output: Path) -> None:
         bin (string): Filepath containing the sequences
         db (string): Filepath with the bakta database.
         output (string): Filepath of the output
+        log_dir (Path): directory for the per-bin Bakta logs
         
     Returns:
         None
@@ -33,8 +35,10 @@ def bakta_analysis(bin: Path, db: str, output: Path) -> None:
     """
     outdir = output / bin.stem
     outdir.mkdir(parents=True, exist_ok=True)
-    
-    log_file = "log/bakta.log"
+
+    bakta_logs = Path(log_dir) / "bakta_log"
+    bakta_logs.mkdir(parents=True, exist_ok=True)
+    log_file = bakta_logs / f"{bin.stem}.log"
     
     with open(log_file, "w") as log:
         subprocess.run([
@@ -47,10 +51,14 @@ def bakta_analysis(bin: Path, db: str, output: Path) -> None:
             str(bin)
         ], check=True, stdout=log, stderr=subprocess.STDOUT)
 
-def fetch_bakta(bins: list, db: Path, out: Path) -> None:
+def fetch_bakta(bins: list, db: Path, out: Path,
+                log_dir: Path = Path("log")) -> None:
     
     with ThreadPoolExecutor(max_workers=5) as executor:
-        list(executor.map(partial(bakta_analysis, db=db, output=out), bins))
+        list(executor.map(
+            partial(bakta_analysis, db=db, output=out, log_dir=log_dir),
+            bins,
+        ))
     
     
                     

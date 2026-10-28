@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 import functions as f
 import pandas as pd
 from time import perf_counter
@@ -9,6 +10,37 @@ import requests
 import time
 import json
 import os
+
+# Arguments
+
+parser = argparse.ArgumentParser(
+    description="Run the MbXDb processing pipeline."
+)
+parser.add_argument(
+    "--bakta-db",
+    type=Path,
+    default=Path("../db-light"),
+    help="path to the Bakta db-light directory",
+)
+parser.add_argument(
+    "--data-dir",
+    type=Path,
+    default=Path("Data"),
+    help="database root holding metadata.csv, Raw/, Entities/ and Reports/",
+)
+parser.add_argument(
+    "--tmp-dir",
+    type=Path,
+    default=Path("tmp"),
+    help="scratch directory for intermediate pipeline files",
+)
+parser.add_argument(
+    "--log-dir",
+    type=Path,
+    default=Path("log"),
+    help="directory where pipeline logs are appended",
+)
+args = parser.parse_args()
 
 # Control Keys
 
@@ -22,11 +54,18 @@ go_pah = True
 
 # Path definitions
 
-data_dir=Path("Data/Raw/Bins")
-tmp=Path("tmp")
-log=Path("log")
-log_run=Path("log/run.log")
-metadata=Path("Data/metadata.csv")
+data_root=args.data_dir
+data_dir=data_root / "Raw/Bins"
+processed_dir=data_root / "Raw/Processed"
+entities_dir=data_root / "Entities"
+reports_dir=data_root / "Reports"
+tmp=args.tmp_dir
+log=args.log_dir
+log_run=log / "run.log"
+metadata=data_root / "metadata.csv"
+
+for directory in (data_dir, processed_dir, entities_dir, reports_dir, tmp, log):
+    directory.mkdir(parents=True, exist_ok=True)
 
 
 ###########################################
@@ -110,7 +149,7 @@ if bakta_key:
     bakta_start = perf_counter()
     
     bins_list = f.bakta.path_to_list(data_dir)
-    f.bakta.fetch_bakta(bins_list, Path('../db-light'), Path('Data/Raw/Processed'))
+    f.bakta.fetch_bakta(bins_list, args.bakta_db, processed_dir, log)
     
     bakta_elapsed = perf_counter() - bakta_start
     bakta_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -145,9 +184,7 @@ if ent_key:
     ent_start = perf_counter()
     
     print("Building main entities")
-    
-    processed_dir = Path("Data/Raw/Processed")
-    
+
     for file in processed_dir.rglob('*'):
         if file.is_file() == False:
             continue
@@ -170,13 +207,13 @@ if ent_key:
     genes_ent = pd.concat(
         f.ent.create_genes_ent(tsv) for tsv in processed_dir.rglob("*.tsv")
     )
-    genes_ent.to_csv("Data/Entities/genes.csv", index=False)
+    genes_ent.to_csv(entities_dir / "genes.csv", index=False)
     
     bins_ent = f.ent.create_bins_ent(metadata)
-    bins_ent.to_csv("Data/Entities/bins.csv", index=False)
+    bins_ent.to_csv(entities_dir / "bins.csv", index=False)
     
     studies_ent = f.ent.create_studies_ent(metadata)
-    studies_ent.to_csv("Data/Entities/studies.csv", index=False)
+    studies_ent.to_csv(entities_dir / "studies.csv", index=False)
     
     ent_elapsed = perf_counter() - ent_start
     ent_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -212,18 +249,20 @@ if go:
     
     go_start = perf_counter()
     
-    genes_ent = pd.read_csv("Data/Entities/genes.csv")
+    genes_ent = pd.read_csv(entities_dir / "genes.csv")
     
     annotations = f.go.create_database_metadata(genes_ent)
     
-    annotations = f.go.fetch_uniref_annotations(annotations)
+    annotations = f.go.fetch_uniref_annotations(
+        annotations, cache_dir=str(tmp / "uniref2ip_cache")
+    )
     
     ipr2go = f.go.parse_interpro2go("support_files/interpro2go.txt")
     annotations = f.go.fetch_go_terms(annotations, ipr2go)
     
     annotations = f.go.resolve_go_names(annotations, "support_files/go-basic.obo")
     
-    annotations.to_csv("Data/Entities/annotations.csv", index=False)
+    annotations.to_csv(entities_dir / "annotations.csv", index=False)
     
     go_elapsed = perf_counter() - go_start
     go_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -260,7 +299,13 @@ if pah_key:
     
     pah_start = perf_counter()
     
-    candidates, pah_summary = f.pah.run()
+    candidates, pah_summary = f.pah.run(
+        genes_csv=str(entities_dir / "genes.csv"),
+        query_faa=str(tmp / "sequences.faa"),
+        out_dir=str(log / "pah_log"),
+        out_ent=str(entities_dir / "pah.csv"),
+        out_report=str(reports_dir / "pah_summary.csv"),
+    )
     
     pah_elapsed = perf_counter() - pah_start
     pah_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -294,48 +339,55 @@ else:
 
 if pah_key and go_pah:
 
-    print("Running GO annotation module on PAH genes")
+    pah_df = pd.read_csv(entities_dir / "pah.csv")
 
-    pah_go_start = perf_counter()
+    if pah_df.empty:
+        print("No PAH candidates: skipping PAH-GO annotation")
 
-    pah_df = pd.read_csv("Data/Entities/pah.csv")
-    pah_gene_tags = set(pah_df["Gene_Tag"].unique())
+    else:
+        print("Running GO annotation module on PAH genes")
 
-    genes_all = pd.read_csv("Data/Entities/genes.csv")
-    pah_genes = genes_all[genes_all["Gene_Tag"].isin(pah_gene_tags)].copy()
+        pah_go_start = perf_counter()
 
-    annotations_pah = f.go.create_database_metadata(pah_genes)
+        pah_gene_tags = set(pah_df["Gene_Tag"].unique())
 
-    annotations_pah = f.go.fetch_uniref_annotations(annotations_pah)
+        genes_all = pd.read_csv(entities_dir / "genes.csv")
+        pah_genes = genes_all[genes_all["Gene_Tag"].isin(pah_gene_tags)].copy()
 
-    ipr2go = f.go.parse_interpro2go("support_files/interpro2go.txt")
-    annotations_pah = f.go.fetch_go_terms(annotations_pah, ipr2go)
+        annotations_pah = f.go.create_database_metadata(pah_genes)
 
-    annotations_pah = f.go.resolve_go_names(annotations_pah, "support_files/go-basic.obo")
-
-    annotations_pah.to_csv("Data/Entities/pah_annotations.csv", index=False)
-
-    pah_go_elapsed = perf_counter() - pah_go_start
-    pah_go_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    pah_go_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-
-    pah_go_space = subprocess.run(
-        ["du", "-sh", '.'],
-        capture_output=True,
-        text=True,
-        check=True
-    )
-
-    pah_go_size = pah_go_space.stdout.split()[0]
-
-    with open(log_run, 'a') as run:
-        run.write(
-            "#####   PAH-GO CHECKPOINT   #####\n\n"
-            f"Execution time: {timedelta(seconds=round(pah_go_elapsed))}\n"
-            f"Peak memory: {pah_go_mem / 1024:.2f} MB\n"
-            f"Peak memory (children): {pah_go_child_mem / 1024:.2f} MB\n"
-            f"Project size: {pah_go_size}\n\n"
+        annotations_pah = f.go.fetch_uniref_annotations(
+            annotations_pah, cache_dir=str(tmp / "uniref2ip_cache")
         )
+
+        ipr2go = f.go.parse_interpro2go("support_files/interpro2go.txt")
+        annotations_pah = f.go.fetch_go_terms(annotations_pah, ipr2go)
+
+        annotations_pah = f.go.resolve_go_names(annotations_pah, "support_files/go-basic.obo")
+
+        annotations_pah.to_csv(entities_dir / "pah_annotations.csv", index=False)
+
+        pah_go_elapsed = perf_counter() - pah_go_start
+        pah_go_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        pah_go_child_mem = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+
+        pah_go_space = subprocess.run(
+            ["du", "-sh", '.'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        pah_go_size = pah_go_space.stdout.split()[0]
+
+        with open(log_run, 'a') as run:
+            run.write(
+                "#####   PAH-GO CHECKPOINT   #####\n\n"
+                f"Execution time: {timedelta(seconds=round(pah_go_elapsed))}\n"
+                f"Peak memory: {pah_go_mem / 1024:.2f} MB\n"
+                f"Peak memory (children): {pah_go_child_mem / 1024:.2f} MB\n"
+                f"Project size: {pah_go_size}\n\n"
+            )
 
 else:
     pass

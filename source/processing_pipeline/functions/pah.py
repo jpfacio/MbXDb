@@ -136,15 +136,17 @@ def aggregate(out_dir: Path, families: list[str], genes_csv: Path,
 
     for family in families:
         out = out_dir / f"results_{family}.tsv"
-        if not out.exists():
+        if not out.exists() or out.stat().st_size == 0:
             continue
         df = pd.read_csv(out, sep="\t", header=None, names=DEFAULT_OUTFMT)
         df.insert(0, "Family", family)
         frames.append(df)
 
     if not frames:
-        raise FileNotFoundError(
-            f"No PAH screening results found in {out_dir}")
+        return pd.DataFrame(columns=[
+            "Gene_Tag", "Bin", "Product", "Family", "Subject",
+            "Identity", "Evalue", "Bitscore", "Qcov",
+        ])
 
     hits = pd.concat(frames, ignore_index=True)
     hits = hits.rename(columns={"qseqid": "Gene_Tag", "sseqid": "Subject"})

@@ -6,77 +6,104 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
-def assembly(srrs: list, 
-             outdir: Path = Path("tmp/gulf_tmps/assembly"),
+def _find_reads(read_dir: Path, srr: str):
+    """Locate the FASTQ reads of a run, paired or single-end.
+
+    Returns:
+        tuple: (forward, reverse) for paired-end runs, (single, None) for
+            single-end runs, or None when no reads are present.
+    """
+    fwd = read_dir / f"{srr}_1.fastq"
+    rev = read_dir / f"{srr}_2.fastq"
+    if fwd.exists() and rev.exists():
+        return fwd, rev
+
+    single = read_dir / f"{srr}.fastq"
+    if single.exists():
+        return single, None
+
+    return None
+
+
+def assembly(srrs: list,
+             read_dir: Path = Path("tmp/ncbi_tmps/srr"),
+             outdir: Path = Path("tmp/ncbi_tmps/assembly"),
              max_workers: int = 3
 ) -> int:
-    
+    """Assemble the reads of each run with MEGAHIT.
+
+    Handles both paired-end (<srr>_1/_2.fastq) and single-end (<srr>.fastq)
+    runs, so it is not tied to a particular subproject layout.
+
+    Args:
+        srrs (list): SRR accessions to assemble
+        read_dir (Path): directory holding the downloaded FASTQ reads
+        outdir (Path): root where one directory per SRR is written
+        max_workers (int): number of concurrent MEGAHIT processes
+
+    Returns:
+        int: number of SRRs successfully assembled
+    """
+    read_dir = Path(read_dir)
+    outdir = Path(outdir)
+
     srrs = sorted(set(x for x in srrs if x))
-    
+
     to_do = [s for s in srrs if not (outdir / s / f"{s}.fa").exists()]
-    
+
     outdir.mkdir(parents=True, exist_ok=True)
-    
-    stem = Path("tmp/gulf_tmps/srr")
-    paths = []
-    for i in to_do:
-        
-        fwd = i + "_1.fastq"
-        rev = i + "_2.fastq"
-        
-        path_tuple = (stem / fwd, stem / rev)
-        
-        paths.append(path_tuple)
-          
+
     print(f"Assembling {len(to_do):,} SRRs "
           f"({len(srrs) - len(to_do):,} already present)...\n")
-    
-    def worker(path):
-        
-        fwd = path[0]
-        rev = path[1]
-        srr = fwd.stem.split("_")[0]
 
-        for read in (fwd, rev):
-            if not read.exists():
-                raise FileNotFoundError(
-                    f"reads for {srr} missing ({read.name}) - "
-                    "run the download stage first"
-                )
-        
+    def worker(srr):
+
+        reads = _find_reads(read_dir, srr)
+        if reads is None:
+            raise FileNotFoundError(
+                f"reads for {srr} missing in {read_dir} - "
+                "run the download stage first"
+            )
+        fwd, rev = reads
+
         target = outdir / srr
-        
+
         if not (target / "done").exists():
-            
+
             if target.exists() and not (target / "options.json").exists():
                 shutil.rmtree(target)
-            
+
+            if rev is None:
+                read_args = ["-r", str(fwd)]
+            else:
+                read_args = ["-1", str(fwd), "-2", str(rev)]
+
             subprocess.run(
-                ["megahit", "-1", str(fwd), "-2", str(rev), "-o", str(target),
+                ["megahit"] + read_args + ["-o", str(target),
                  "-m", f"{0.9 / max_workers:.2f}",
                  "-t", str(max(1, os.cpu_count() // max_workers)),
                  "--continue"],
                 check=True
             )
-        
+
         contigs = target / "final.contigs.fa"
         if not contigs.exists():
             contigs = target / "final_contigs.fa"
         contigs.rename(target / f"{srr}.fa")
         return srr
-    
+
     completed = 0
-    if paths:
+    if to_do:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            
+
             futures = {
-                executor.submit(worker, path): path
-                for path in paths
+                executor.submit(worker, srr): srr
+                for srr in to_do
             }
-            
+
             for future in tqdm(
                     as_completed(futures),
-                    total=len(paths),
+                    total=len(to_do),
                     desc="megahit",
                     unit="runs"
             ):
@@ -88,9 +115,10 @@ def assembly(srrs: list,
     
     return completed
 
-def build_index(outdir: Path = Path("tmp/gulf_tmps/assembly"),
+def build_index(outdir: Path = Path("tmp/ncbi_tmps/assembly"),
                 max_workers: int = 3
 ) -> int:
+    """Build a bowtie2 index for every assembled run in outdir."""
     
     srrs = sorted(d.name for d in outdir.iterdir() if d.is_dir())
     
@@ -146,18 +174,24 @@ def build_index(outdir: Path = Path("tmp/gulf_tmps/assembly"),
     return completed
 
 def map_reads(srrs: list,
-              read_dir: Path = Path("tmp/gulf_tmps/srr"),
-              outdir: Path = Path("tmp/gulf_tmps/assembly"),
+              read_dir: Path = Path("tmp/ncbi_tmps/srr"),
+              outdir: Path = Path("tmp/ncbi_tmps/assembly"),
               max_workers: int = 3
 ) -> int:
+    """Map the reads of each run against its assembly with bowtie2.
+
+    Supports paired-end and single-end runs. Runs lacking an index or reads
+    are reported and skipped; existing BAMs are left untouched.
+    """
+    read_dir = Path(read_dir)
+    outdir = Path(outdir)
 
     srrs = sorted(set(x for x in srrs if x))
 
     blocked, to_do = [], []
     for s in srrs:
 
-        fwd = read_dir / f"{s}_1.fastq"
-        rev = read_dir / f"{s}_2.fastq"
+        reads = _find_reads(read_dir, s)
         bam = outdir / s / f"{s}.bam"
         idx = Path(f"{outdir / s / f'{s}_index' / s}.rev.2.bt2")
 
@@ -165,7 +199,7 @@ def map_reads(srrs: list,
             blocked.append(s)
         elif bam.exists():
             continue
-        elif not (fwd.exists() and rev.exists()):
+        elif reads is None:
             blocked.append(s)
         else:
             to_do.append(s)
@@ -181,17 +215,21 @@ def map_reads(srrs: list,
 
     def worker(srr):
 
-        fwd = read_dir / f"{srr}_1.fastq"
-        rev = read_dir / f"{srr}_2.fastq"
+        fwd, rev = _find_reads(read_dir, srr)
         idx = outdir / srr / f"{srr}_index" / srr
         bam = outdir / srr / f"{srr}.bam"
         tmp = outdir / srr / f"{srr}.sorttmp"
 
+        if rev is None:
+            read_args = ["-U", str(fwd)]
+        else:
+            read_args = ["-1", str(fwd), "-2", str(rev)]
+
         with open(outdir / srr / "bowtie2.log", "w") as err:
 
             aln = subprocess.Popen(
-                ["bowtie2", "-x", str(idx), "-1", str(fwd), "-2", str(rev),
-                 "-q", "-p", str(threads)],
+                ["bowtie2", "-x", str(idx)] + read_args +
+                ["-q", "-p", str(threads)],
                 stdout=subprocess.PIPE,
                 stderr=err
             )
@@ -240,8 +278,8 @@ def map_reads(srrs: list,
     return completed
 
 def bin_contigs(srrs: list,
-                outdir: Path = Path("tmp/gulf_tmps/assembly"),
-                bindir: Path = Path("tmp/gulf_tmps/bins"),
+                outdir: Path = Path("tmp/ncbi_tmps/assembly"),
+                bindir: Path = Path("tmp/ncbi_tmps/bins"),
                 max_workers: int = 3
 ) -> int:
 
@@ -351,7 +389,7 @@ def _remove_path(path: Path, attempts: int = 3) -> bool:
 
 
 def clean_assembly_dirs(
-    outdir: Path = Path("tmp/gulf_tmps/assembly")
+    outdir: Path = Path("tmp/ncbi_tmps/assembly")
 ) -> int:
     """Discard MEGAHIT leftovers from each assembly directory.
 

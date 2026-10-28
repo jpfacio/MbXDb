@@ -35,10 +35,11 @@ MXD/
 │ └── Reports/ # Final analysis reports
 │
 ├── source/ # Analysis code modules
-│ ├── chen_data/ # Scripts for Chen et al. (2022) database processing
+│ ├── ncbi/ # NCBI SRA acquisition/assembly scripts (one run per subproject)
 │ ├── processing_pipeline/ # Core pipeline logic 
 │ └── test/ # Test subset and validation scripts
 │
+├── support_files/mining/ncbi/ # NCBI source JSONs (DOI -> SRRs)
 ├── mxbdb-build.sh # Main entrypoint script 
 ├── mxbdb-cli.py # Query CLI (Data/Entities CSVs)
 └── environment.yml # Conda environment 
@@ -61,11 +62,34 @@ conda activate mxd
 
 ### 2. Run the pipeline
 
--Run full pipeline on all bins
-`./mxbdb-build.sh --all`
+-Process all NCBI sources
+`./mxbdb-build.sh --ncbi`
 
--Or run only on test subset
-`./mxbdb-build.sh --t`
+-Or process a single NCBI source (e.g. gulf)
+`./mxbdb-build.sh --ncbi gulf`
 
--Or process Chen et al. (2022) database + your bins
-`./mxbdb-build.sh --chen`
+-Specify the Bakta database and keep the tmp directory
+`./mxbdb-build.sh --ncbi gulf --bakta-db /path/to/db-light --keep-tmps`
+
+-Process the remaining SRRs 10 at a time, removing each batch's tmp data
+`./mxbdb-build.sh --ncbi gulf --chunks 10`
+
+-Process a custom study with an inline DOI -> SRR mapping
+`./mxbdb-build.sh --ncbi gulf --isolated-run '{"10.xxxx/xxxx": ["SRR123", "SRR456"]}'`
+
+-Or load that mapping from a JSON file
+`./mxbdb-build.sh --ncbi gulf --isolated-run /path/to/study.json`
+
+`--isolated-run` always takes a `{doi: [srr]}` JSON object (or a path to one)
+and requires exactly one `--ncbi SOURCE`. The SRRs do not need to exist in
+`support_files/mining/ncbi/`.
+
+`--chunks` and `--isolated-run` are mutually exclusive and imply `--ncbi` (all
+sources unless restricted with `--ncbi SOURCE`). Runs already listed in
+`Data/metadata.csv` are skipped, and new results are merged into the existing
+`Data` tables. Without either flag the pipeline runs every SRR and then removes
+`tmp/` unless `--keep-tmps` is used.
+
+Each batch writes its logs to `log/chunks/<chunk>/` (`run.log`, `bakta_log/`
+and `pah_log/`); `log/run.log` indexes the batches. Logs are kept even when the
+batch `tmp/` data is removed.

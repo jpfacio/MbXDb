@@ -176,9 +176,9 @@ def _parse_runinfo(text: str) -> list:
 
 
 def download_srrs(
-    jsonl: str = "tmp/gulf_tmps/gulf.jsonl",
+    jsonl: str = "tmp/ncbi_tmps/ncbi.jsonl",
     srrs: list = None,
-    outdir: str = "tmp/gulf_tmps",
+    outdir: str = "tmp/ncbi_tmps",
     max_workers: int = 3
 ) -> int:
     """Download FASTQ reads for a set of SRRs.
@@ -186,9 +186,10 @@ def download_srrs(
     Runs fasterq-dump in parallel (ThreadPoolExecutor + tqdm, mirroring the
     other modules). Runs already present in outdir are skipped, so restarted
     runs resume instead of re-downloading. Logging is left to the caller.
+    Paired-end runs land as <srr>_1/_2.fastq; single-end runs as <srr>.fastq.
 
     Args:
-        jsonl (str): path to the gulf output dump (one dict per line), read
+        jsonl (str): path to a run metadata dump (one dict per line), read
             when srrs is not given
         srrs (list): explicit SRR accessions; when given, jsonl is not read
         outdir (str): directory where fasterq-dump writes the FASTQ files

@@ -201,7 +201,7 @@ def run_checkm(
             
             frames.append(pd.read_csv(StringIO(table_text), sep='\t'))
     
-    final_table = "tmp/checkm_results.tsv"
+    final_table = Path(output_dir) / "checkm_results.tsv"
     
     df = pd.concat(frames, ignore_index=True)
     
@@ -280,8 +280,9 @@ def final_processing(seqkit: pd.DataFrame, checkm: pd.DataFrame, tmp_file: Path)
     table_path = tmp_file / "qc_metrics.tsv"
     
     df.to_csv(table_path, sep="\t", index=False)
-    
-    subprocess.run(["rm", "tmp/summary_stats.tsv", "tmp/checkm_results.tsv"], check=True)
+
+    (tmp_file / "summary_stats.tsv").unlink(missing_ok=True)
+    (tmp_file / "checkm_results.tsv").unlink(missing_ok=True)
 
 
 def _n50(lengths: list) -> int:

@@ -1,4 +1,6 @@
 from pathlib import Path
+import argparse
+import json
 import subprocess
 import resource
 from time import perf_counter
@@ -14,38 +16,83 @@ mapping = True
 binning = True
 metadata = True
 
+# Source JSON (DOI -> SRR list) supplied by the --ncbi flag in mxbdb-build.sh
+
+parser = argparse.ArgumentParser(
+    description="Run the Gulf NCBI acquisition/assembly pipeline."
+)
+parser.add_argument(
+    "json",
+    nargs="?",
+    type=Path,
+    default=Path("support_files/mining/ncbi/gulf.json"),
+    help="source JSON mapping publication DOIs to SRR runs",
+)
+parser.add_argument(
+    "--srrs",
+    help="comma-separated SRRs to process (default: every SRR in the JSON)",
+)
+parser.add_argument(
+    "--data-dir",
+    type=Path,
+    default=Path("Data"),
+    help="database root where bins and metadata.csv are written",
+)
+parser.add_argument(
+    "--workdir",
+    type=Path,
+    default=Path("tmp/gulf_tmps"),
+    help="working directory for downloads, assemblies and bins",
+)
+parser.add_argument(
+    "--log-dir",
+    type=Path,
+    default=Path("log"),
+    help="directory where pipeline logs are appended",
+)
+args = parser.parse_args()
+
+source_json = args.json
+data_dir = args.data_dir
+log = args.log_dir
+
 # Defining directories and files
 
-tmp = Path("tmp")
-log = Path("log")
-out_gulf_dir = tmp / "gulf_tmps"
+out_gulf_dir = args.workdir
 out_srr_dir = out_gulf_dir / "srr"
 out_assembly_dir = out_gulf_dir / "assembly"
-out_jsonl = out_srr_dir / "gulf.jsonl"
+out_jsonl = out_srr_dir / f"{source_json.stem}.jsonl"
 out_bin_dir = out_gulf_dir / "bins"
 log_run = log / "run.log"
 
-tmp.mkdir(parents=True, exist_ok=True)
 log.mkdir(parents=True, exist_ok=True)
 out_gulf_dir.mkdir(parents=True, exist_ok=True)
 out_srr_dir.mkdir(parents=True, exist_ok=True)
 out_assembly_dir.mkdir(parents=True, exist_ok=True)
 out_bin_dir.mkdir(parents=True, exist_ok=True)
 
-srrs = ["SRR4342129", "SRR4342130", "SRR4342133", "SRR4342134", "SRR4342135", "SRR4342136", 
-            "SRR21147274", "SRR21147275", "SRR21147276", "SRR21147277", "SRR21147278",
-            "SRR21147279", "SRR21147280", "SRR21147281", "SRR21147282", "SRR21147283"]
+with open(source_json) as fh:
+    source = json.load(fh)
+
+doi_by_srr = {
+    srr: doi
+    for doi, runs in source.items()
+    for srr in runs
+}
+
+if args.srrs:
+    requested = [s.strip() for s in args.srrs.split(",") if s.strip()]
+    srrs = [s for s in requested if s in doi_by_srr]
+    missing = [s for s in requested if s not in doi_by_srr]
+    if missing:
+        print(f"[WARN] SRRs not in {source_json.name}: {', '.join(missing)}")
+else:
+    srrs = list(doi_by_srr)
 
 # Build gulf.jsonl from SRR metadata
 
-# Hardcoded BioProject -> publication DOI. get_srr_info_batch does not carry
-# DOIs, so they are stamped here at write time; keeps the metadata anchor's
-# study_id populated across rebuilds.
-
-bioproject_dois = {
-    "PRJNA1077797": "10.1093/ismeco/ycae164",
-    "PRJNA832762": "10.1016/j.jece.2023.109413",
-}
+# get_srr_info_batch does not carry DOIs, so they are stamped here from the
+# source JSON at write time; keeps the metadata anchor's study_id populated.
 
 if build_jsonl:
 
@@ -54,7 +101,7 @@ if build_jsonl:
     srr_info = f.acq.get_srr_info_batch(srrs)
 
     for row in srr_info:
-        row["doi"] = bioproject_dois.get(row.get("bioproject"), "")
+        row["doi"] = doi_by_srr.get(row.get("srr"), "")
 
     print(f"SRRs : {len(srr_info)}")
 
@@ -85,20 +132,6 @@ if build_jsonl:
             f"SRR records: {len(srr_info)}\n\n"
         )
 
-# ======================================================================
-# TEST SUBSET ##########################################################
-# Fixed test subset: currently a single SRR (SRR4342129, PRJNA340003).
-# Edit the SRR list here to test other runs. REMOVE THIS WHOLE BLOCK (and
-# the `srrs=test_srrs` arguments in the stages below) to run the full pool
-# from gulf.jsonl.
-# ======================================================================
-
-test_srrs = [
-   "SRR34748663", "SRR34748664", "SRR18944112", "SRR18944113"
-]
-
-# ======================================================================
-
 # Download reads for the recorded SRRs
 
 if download_srrs:
@@ -108,11 +141,9 @@ if download_srrs:
     fetch_start = perf_counter()
 
     completed = f.acq.download_srrs(
-        srrs=test_srrs,                      # TEST SUBSET: single SRR run for now
+        srrs=srrs,
         outdir=str(out_srr_dir),
     )
-    # Full pool instead:
-    # completed = f.acq.download_srrs(jsonl=str(out_jsonl), outdir=str(out_srr_dir))
 
     fetch_elapsed = perf_counter() - fetch_start
     peak_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -144,11 +175,10 @@ if assembly:
     fetch_start = perf_counter()
     
     completed = f.ass.assembly(
-        srrs=test_srrs,                   # TEST SUBSET: single SRR run for now
+        srrs=srrs,
+        read_dir=out_srr_dir,
         outdir=out_assembly_dir
     )
-    # Full pool instead:
-    # completed = f.ass.assembly(srrs=pool, outdir=out_assembly_dir)
 
     fetch_elapsed = perf_counter() - fetch_start
     peak_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -179,13 +209,10 @@ if mapping:
 
     completed_idx = f.ass.build_index(out_assembly_dir)
     completed = f.ass.map_reads(
-        srrs=test_srrs,                    # TEST SUBSET: single SRR run for now
+        srrs=srrs,
         read_dir=out_srr_dir,
         outdir=out_assembly_dir,
     )
-    # Full pool instead:
-    # completed = f.ass.map_reads(srrs=pool, read_dir=out_srr_dir,
-    #                             outdir=out_assembly_dir)
 
     fetch_elapsed = perf_counter() - fetch_start
     peak_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -216,13 +243,10 @@ if binning:
     fetch_start = perf_counter()
 
     completed = f.ass.bin_contigs(
-        srrs=test_srrs,                    # TEST SUBSET: single SRR run for now
+        srrs=srrs,
         outdir=out_assembly_dir,
         bindir=out_bin_dir,
     )
-    # Full pool instead:
-    # completed = f.ass.bin_contigs(srrs=pool, outdir=out_assembly_dir,
-    #                              bindir=out_bin_dir)
 
     fetch_elapsed = perf_counter() - fetch_start
     peak_mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -248,8 +272,8 @@ if binning:
         )
 
 if metadata:
-    
-    gulf_bins = Path("Data/Raw/Bins")
-    out_metadata = Path("Data/metadata.csv")
+
+    gulf_bins = data_dir / "Raw/Bins"
+    out_metadata = data_dir / "metadata.csv"
     f.metadata.move_bins(out_bin_dir, gulf_bins)
     f.metadata.fetch_metadata(out_jsonl, gulf_bins, out_metadata)

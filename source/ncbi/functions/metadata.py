@@ -130,27 +130,26 @@ def _fetch_biosample_batch(accessions: list, max_workers: int = 4) -> dict:
 
 
 def fetch_metadata(
-    jsonl: Path = Path("tmp/gulf_tmps/srr/gulf.jsonl"),
+    jsonl: Path = Path("tmp/ncbi_tmps/ncbi.jsonl"),
     bindir: Path = Path("Data/Raw/Bins"),
     out_csv: Path = Path("Data/metadata.csv"),
     max_workers: int = 4,
 ) -> int:
     """Build the metadata.csv anchor for the processing pipeline.
 
-    All-in-one filler for the Gulf of Mexico subproject: every bin in the
-    QC input directory is stored as its own row, the SRR base name goes into
-    the srr column, and sample/project/study_id come straight from
-    gulf.jsonl (biosample, bioproject, doi). The coord, date and depth
-    columns are pulled live from the NCBI BioSample record of each SAMN
-    accession via eutils (see _fetch_biosample).
+    Every bin in the QC input directory is stored as its own row, the SRR
+    base name goes into the srr column, and sample/project/study_id come
+    straight from the run metadata dump (biosample, bioproject, doi). The
+    coord, date and depth columns are pulled live from the NCBI BioSample
+    record of each SAMN accession via eutils (see _fetch_biosample).
 
     Bins are expected as flat *.fa.gz files (the shape move_bins produces
     and the QC stage consumes); the SRR of each bin is derived from its name
-    (SRR21147275.1 -> SRR21147275). Bins not present in gulf.jsonl are
-    skipped, keeping the table scoped to the gulf subproject.
+    (SRR21147275.1 -> SRR21147275). Bins not present in the dump are
+    skipped, keeping the table scoped to that run set.
 
     Args:
-        jsonl (Path): gulf SRR metadata dump (one dict per line)
+        jsonl (Path): run metadata dump (one dict per line)
         bindir (Path): directory holding the flat gzipped bins
         out_csv (Path): where to write the metadata table
         max_workers (int): concurrent BioSample fetches
@@ -195,42 +194,56 @@ def fetch_metadata(
         biosample = row.get("biosample") or ""
         sample_attrs = attrs.get(biosample, {})
 
-        rows.append([
-            bin_id,
-            srr,
-            biosample,
-            row.get("bioproject") or "",
-            row.get("doi") or "",
-            sample_attrs.get("collection_date") or "",
-            sample_attrs.get("lat_lon") or "",
-            sample_attrs.get("depth") or "",
-        ])
+        rows.append({
+            "bin": bin_id,
+            "srr": srr,
+            "sample": biosample,
+            "project": row.get("bioproject") or "",
+            "study_id": row.get("doi") or "",
+            "date": sample_attrs.get("collection_date") or "",
+            "coord": sample_attrs.get("lat_lon") or "",
+            "depth": sample_attrs.get("depth") or "",
+        })
 
     out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    merged = {}
+    if out_csv.exists():
+        with open(out_csv, newline="") as fh:
+            reader = csv.DictReader(fh)
+            if reader.fieldnames:
+                columns = reader.fieldnames
+            for existing in reader:
+                merged[existing["bin"]] = existing
+
+    for row in rows:
+        merged[row["bin"]] = row
+
     with open(out_csv, "w", newline="") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(columns)
-        writer.writerows(rows)
+        writer = csv.DictWriter(fh, fieldnames=columns, extrasaction="ignore",
+                                restval="")
+        writer.writeheader()
+        writer.writerows(merged.values())
 
     print(f"Wrote {len(rows):,} bins "
-          f"({len(set(r[1] for r in rows))} SRRs) to {out_csv}")
+          f"({len({r['srr'] for r in rows})} SRRs) to {out_csv}")
     return len(rows)
 
 
 def move_bins(
-    bindir: Path = Path("tmp/gulf_tmps/bins"),
+    bindir: Path = Path("tmp/ncbi_tmps/bins"),
     destdir: Path = Path("Data/Raw/Bins"),
 ) -> int:
-    """Move gulf bins into the QC input directory, flattened and gzipped.
+    """Move bins into the QC input directory, flattened and gzipped.
 
     The processing pipeline's QC stage expects a flat directory of *.fa.gz
-    files (sum_stats.seqkit_summary globs Data/Raw/Bins/*.fa.gz). Gulf bins
-    are produced per-SRR under tmp/gulf_tmps/bins, so each bin fasta is
-    moved out of its SRR folder and gzipped while landing. Destinations that
-    already exist are left untouched, making repeated runs harmless.
+    files (sum_stats.seqkit_summary globs Data/Raw/Bins/*.fa.gz). Bins are
+    produced per-SRR under the binning output directory, so each bin fasta
+    is moved out of its SRR folder and gzipped while landing. Destinations
+    that already exist are left untouched, making repeated runs harmless.
 
     Args:
-        bindir (Path): gulf binning output (one subdirectory per SRR)
+        bindir (Path): binning output (one subdirectory per SRR)
         destdir (Path): QC input directory (Data/Raw/Bins)
 
     Returns:
