@@ -160,4 +160,7 @@ def create_studies_ent(meta: Path) -> pd.DataFrame:
             "Affiliations": affil_str
         })
 
-    return pd.DataFrame(studies)
+    columns = ["Study_ID", "Title", "Keywords", "Authors",
+               "Journal", "Year", "Affiliations"]
+
+    return pd.DataFrame(studies, columns=columns)

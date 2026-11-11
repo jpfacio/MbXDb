@@ -167,9 +167,19 @@ if ent_key:
                 time.sleep(1)
                 
     
-    genes_ent = pd.concat(
-        f.ent.create_genes_ent(tsv) for tsv in processed_dir.rglob("*.tsv")
-    )
+    tsvs = list(processed_dir.rglob("*.tsv"))
+
+    if tsvs:
+        genes_ent = pd.concat(
+            f.ent.create_genes_ent(tsv) for tsv in tsvs
+        )
+    else:
+        print("[WARN] No Bakta output found; writing an empty genes entity.")
+        genes_ent = pd.DataFrame(columns=[
+            "Gene_Tag", "Contig", "Start", "Stop", "Product",
+            "Databases", "Product_Sequence", "Bin",
+        ])
+
     genes_ent.to_csv("Data/Entities/genes.csv", index=False)
     
     bins_ent = f.ent.create_bins_ent(metadata)

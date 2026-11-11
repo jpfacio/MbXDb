@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
 def assembly(srrs: list, 
-             outdir: Path = Path("tmp/gulf_tmps/assembly"),
+             outdir: Path = Path("tmp/ncbi_tmps/assembly"),
              max_workers: int = 3
 ) -> int:
     
@@ -17,7 +17,7 @@ def assembly(srrs: list,
     
     outdir.mkdir(parents=True, exist_ok=True)
     
-    stem = Path("tmp/gulf_tmps/srr")
+    stem = Path("tmp/ncbi_tmps/srr")
     paths = []
     for i in to_do:
         
@@ -88,7 +88,7 @@ def assembly(srrs: list,
     
     return completed
 
-def build_index(outdir: Path = Path("tmp/gulf_tmps/assembly"),
+def build_index(outdir: Path = Path("tmp/ncbi_tmps/assembly"),
                 max_workers: int = 3
 ) -> int:
     
@@ -146,8 +146,8 @@ def build_index(outdir: Path = Path("tmp/gulf_tmps/assembly"),
     return completed
 
 def map_reads(srrs: list,
-              read_dir: Path = Path("tmp/gulf_tmps/srr"),
-              outdir: Path = Path("tmp/gulf_tmps/assembly"),
+              read_dir: Path = Path("tmp/ncbi_tmps/srr"),
+              outdir: Path = Path("tmp/ncbi_tmps/assembly"),
               max_workers: int = 3
 ) -> int:
 
@@ -240,8 +240,8 @@ def map_reads(srrs: list,
     return completed
 
 def bin_contigs(srrs: list,
-                outdir: Path = Path("tmp/gulf_tmps/assembly"),
-                bindir: Path = Path("tmp/gulf_tmps/bins"),
+                outdir: Path = Path("tmp/ncbi_tmps/assembly"),
+                bindir: Path = Path("tmp/ncbi_tmps/bins"),
                 max_workers: int = 3
 ) -> int:
 
@@ -351,7 +351,7 @@ def _remove_path(path: Path, attempts: int = 3) -> bool:
 
 
 def clean_assembly_dirs(
-    outdir: Path = Path("tmp/gulf_tmps/assembly")
+    outdir: Path = Path("tmp/ncbi_tmps/assembly")
 ) -> int:
     """Discard MEGAHIT leftovers from each assembly directory.
 

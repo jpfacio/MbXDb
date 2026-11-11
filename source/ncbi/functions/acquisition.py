@@ -176,9 +176,9 @@ def _parse_runinfo(text: str) -> list:
 
 
 def download_srrs(
-    jsonl: str = "tmp/gulf_tmps/gulf.jsonl",
+    jsonl: str = "tmp/ncbi.jsonl",
     srrs: list = None,
-    outdir: str = "tmp/gulf_tmps",
+    outdir: str = "tmp/ncbi_tmps",
     max_workers: int = 3
 ) -> int:
     """Download FASTQ reads for a set of SRRs.
@@ -188,7 +188,7 @@ def download_srrs(
     runs resume instead of re-downloading. Logging is left to the caller.
 
     Args:
-        jsonl (str): path to the gulf output dump (one dict per line), read
+        jsonl (str): path to the NCBI output dump (one dict per line), read
             when srrs is not given
         srrs (list): explicit SRR accessions; when given, jsonl is not read
         outdir (str): directory where fasterq-dump writes the FASTQ files

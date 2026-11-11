@@ -35,7 +35,7 @@ MXD/
 │ └── Reports/ # Final analysis reports
 │
 ├── source/ # Analysis code modules
-│ ├── chen_data/ # Scripts for Chen et al. (2022) database processing
+│ ├── ncbi/ # Scripts for NCBI SRR input processing
 │ ├── processing_pipeline/ # Core pipeline logic 
 │ └── test/ # Test subset and validation scripts
 │
@@ -61,11 +61,15 @@ conda activate mxd
 
 ### 2. Run the pipeline
 
--Run full pipeline on all bins
-`./mxbdb-build.sh --all`
+-Run every NCBI input in `support_files/ncbi`
+`./mxbdb-build.sh --ncbi`
 
--Or run only on test subset
-`./mxbdb-build.sh --t`
+-Or run specific NCBI inputs by name (without the `.json`)
+`./mxbdb-build.sh --ncbi gulf arctic`
 
--Or process Chen et al. (2022) database + your bins
-`./mxbdb-build.sh --chen`
+-Process the NCBI stage in chunks of N SRRs, clearing tmp between chunks
+`./mxbdb-build.sh --ncbi --chunks 2`
+
+-Run only one stage (useful for testing)
+`./mxbdb-build.sh --ncbi --only-ncbi`
+`./mxbdb-build.sh --ncbi --only-pp`

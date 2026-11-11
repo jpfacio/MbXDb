@@ -1,30 +1,62 @@
 #!/bin/bash
 
-run_chen=false
-run_gulf=false
-run_all=false
+run_ncbi=false
+run_ncbi_stage=true
+run_pp_stage=true
+only_ncbi=false
+only_pp=false
+keep_tmps=false
+chunks=""
+ncbi_inputs=()
 
 # Defining arguments
-if [[ "$#" -eq 1 && "$1" == "--help" ]]; then
-    cat << 'EOF'
-In development
-EOF
-    exit 0
-fi
-
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --chen)
-            run_chen=true
+        --help)
+            cat << 'EOF'
+Usage: ./mxbdb-build.sh --ncbi [name ...] [--only-ncbi | --only-pp]
+                      [--chunks N] [--keep-tmps]
+
+  --ncbi [name ...]   Build from the NCBI SRR inputs in support_files/ncbi.
+                      Pass one or more json names (e.g. --ncbi gulf arctic).
+                      With no names, every json in support_files/ncbi is used.
+                      Runs both the NCBI stage and the processing pipeline.
+  --only-ncbi         With --ncbi, run only the NCBI stage.
+  --only-pp           With --ncbi, run only the processing pipeline.
+  --chunks N          Process N SRRs at a time through the NCBI stage, clearing
+                      tmp between chunks. Ignored when the NCBI stage is skipped.
+  --keep-tmps         Keep the tmp directory after the pipeline finishes.
+                      Without it, tmp is removed at the end of the run.
+EOF
+            exit 0
+            ;;
+        --only-ncbi)
+            only_ncbi=true
             shift
             ;;
-        --gulf)
-            run_gulf=true
+        --only-pp)
+            only_pp=true
             shift
             ;;
-        --all)
-            run_all=true
+        --chunks)
+            if [[ ! "$2" =~ ^[0-9]+$ ]] || [ "$2" -lt 1 ]; then
+                echo "Error: --chunks needs a positive integer (got '$2')" >&2
+                exit 1
+            fi
+            chunks="$2"
+            shift 2
+            ;;
+        --keep-tmps)
+            keep_tmps=true
             shift
+            ;;
+        --ncbi)
+            run_ncbi=true
+            shift
+            while [[ $# -gt 0 && "$1" != --* ]]; do
+                ncbi_inputs+=("$1")
+                shift
+            done
             ;;
         *)
             echo "Invalid argument: $1" >&2
@@ -33,19 +65,43 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if $run_all; then
-    if [ $run_chen = true ] || [ $run_gulf = true ]; then
-        echo "Error: Argument --all was used alongside to specific subprojects, this argument enables all."
-        exit 1
-    fi
-    run_chen=true
-    run_gulf=true
-fi
-
-if ! $run_chen && ! $run_gulf; then
-    echo "Error: The whole database or specific subprojects are needed to run MXD"
+if ! $run_ncbi; then
+    echo "Error: --ncbi is needed to select the NCBI inputs to build from" >&2
     exit 1
 fi
+
+if $only_ncbi && $only_pp; then
+    echo "Error: --only-ncbi and --only-pp are mutually exclusive" >&2
+    exit 1
+fi
+
+if $only_ncbi; then
+    run_pp_stage=false
+fi
+
+if $only_pp; then
+    run_ncbi_stage=false
+fi
+
+ncbi_dir="support_files/ncbi"
+
+# No names given: run every json under support_files/ncbi
+
+if [ "${#ncbi_inputs[@]}" -eq 0 ]; then
+    for json in "$ncbi_dir"/*.json; do
+        [ -e "$json" ] || continue
+        ncbi_inputs+=("$(basename "$json" .json)")
+    done
+fi
+
+# Every requested name must resolve to a json in support_files/ncbi
+
+for name in "${ncbi_inputs[@]}"; do
+    if [ ! -f "$ncbi_dir/$name.json" ]; then
+        echo "Error: no such NCBI input '$name' ($ncbi_dir/$name.json)" >&2
+        exit 1
+    fi
+done
 
 echo "Starting"
 echo "Creating Data Directories"
@@ -125,23 +181,42 @@ else
     echo "Failed to create: $log_dir"
 fi
 
-if $run_chen; then
-    if ! python3 "source/chen_data/run_chen.py"; then
-        echo "Error: chen data stage failed" >&2
+if $run_ncbi_stage; then
+    if [ -n "$chunks" ]; then
+        if ! python3 "source/ncbi/run_ncbi.py" "${ncbi_inputs[@]}" --chunks "$chunks"; then
+            echo "Error: ncbi data stage failed" >&2
+            exit 1
+        fi
+    else
+        if ! python3 "source/ncbi/run_ncbi.py" "${ncbi_inputs[@]}"; then
+            echo "Error: ncbi data stage failed" >&2
+            exit 1
+        fi
+    fi
+fi
+
+if $run_pp_stage; then
+    shopt -s nullglob
+    pp_bins=("$data_dir"/Raw/Bins/*.fa.gz)
+    shopt -u nullglob
+
+    if [ "${#pp_bins[@]}" -eq 0 ]; then
+        echo "[WARN] No bins in $data_dir/Raw/Bins; skipping the processing pipeline."
+    elif ! python "source/processing_pipeline/run_pp.py"; then
+        echo "Error: processing pipeline failed" >&2
         exit 1
     fi
 fi
 
-if $run_gulf; then
-    if ! python3 "source/gulf_data/run_gulf.py"; then
-        echo "Error: gulf data stage failed" >&2
+if $keep_tmps; then
+    echo "Keeping tmp directory"
+elif [ -d "$tmp_dir" ]; then
+    if rm -rf "$tmp_dir"; then
+        echo "Tmp directory removed"
+    else
+        echo "Error removing the tmp directory." >&2
         exit 1
     fi
-fi
-
-if ! python "source/processing_pipeline/run_pp.py"; then
-    echo "Error: processing pipeline failed" >&2
-    exit 1
 fi
 
 

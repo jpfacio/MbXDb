@@ -101,6 +101,6 @@ python mxbdb-cli.py bins --csv
 ## Notes
 
 - The entity CSVs are pipeline outputs and are gitignored; generate them with
-  `./mxbdb-build.sh --chen` (or `--all`) before querying.
+  `./mxbdb-build.sh --ncbi` before querying.
 - Table width/column width are fixed via `pandas` display options
   (`display.width=140`, `display.max_colwidth=60`).

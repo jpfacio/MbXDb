@@ -130,27 +130,27 @@ def _fetch_biosample_batch(accessions: list, max_workers: int = 4) -> dict:
 
 
 def fetch_metadata(
-    jsonl: Path = Path("tmp/gulf_tmps/srr/gulf.jsonl"),
+    jsonl: Path = Path("tmp/ncbi.jsonl"),
     bindir: Path = Path("Data/Raw/Bins"),
     out_csv: Path = Path("Data/metadata.csv"),
     max_workers: int = 4,
 ) -> int:
     """Build the metadata.csv anchor for the processing pipeline.
 
-    All-in-one filler for the Gulf of Mexico subproject: every bin in the
+    All-in-one filler for the selected NCBI subprojects: every bin in the
     QC input directory is stored as its own row, the SRR base name goes into
     the srr column, and sample/project/study_id come straight from
-    gulf.jsonl (biosample, bioproject, doi). The coord, date and depth
+    ncbi.jsonl (biosample, bioproject, doi). The coord, date and depth
     columns are pulled live from the NCBI BioSample record of each SAMN
     accession via eutils (see _fetch_biosample).
 
     Bins are expected as flat *.fa.gz files (the shape move_bins produces
     and the QC stage consumes); the SRR of each bin is derived from its name
-    (SRR21147275.1 -> SRR21147275). Bins not present in gulf.jsonl are
-    skipped, keeping the table scoped to the gulf subproject.
+    (SRR21147275.1 -> SRR21147275). Bins not present in ncbi.jsonl are
+    skipped, keeping the table scoped to the NCBI subprojects.
 
     Args:
-        jsonl (Path): gulf SRR metadata dump (one dict per line)
+        jsonl (Path): NCBI SRR metadata dump (one dict per line)
         bindir (Path): directory holding the flat gzipped bins
         out_csv (Path): where to write the metadata table
         max_workers (int): concurrent BioSample fetches
@@ -218,19 +218,19 @@ def fetch_metadata(
 
 
 def move_bins(
-    bindir: Path = Path("tmp/gulf_tmps/bins"),
+    bindir: Path = Path("tmp/ncbi_tmps/bins"),
     destdir: Path = Path("Data/Raw/Bins"),
 ) -> int:
-    """Move gulf bins into the QC input directory, flattened and gzipped.
+    """Move NCBI bins into the QC input directory, flattened and gzipped.
 
     The processing pipeline's QC stage expects a flat directory of *.fa.gz
-    files (sum_stats.seqkit_summary globs Data/Raw/Bins/*.fa.gz). Gulf bins
-    are produced per-SRR under tmp/gulf_tmps/bins, so each bin fasta is
+    files (sum_stats.seqkit_summary globs Data/Raw/Bins/*.fa.gz). NCBI bins
+    are produced per-SRR under tmp/ncbi_tmps/bins, so each bin fasta is
     moved out of its SRR folder and gzipped while landing. Destinations that
     already exist are left untouched, making repeated runs harmless.
 
     Args:
-        bindir (Path): gulf binning output (one subdirectory per SRR)
+        bindir (Path): NCBI binning output (one subdirectory per SRR)
         destdir (Path): QC input directory (Data/Raw/Bins)
 
     Returns:
